@@ -1,0 +1,3 @@
+Manifest-Version: 1.0
+Main-Class: au.edu.unimelb.processmining.decomposition.Decomposer
+
