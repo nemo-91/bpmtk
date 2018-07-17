@@ -8,7 +8,6 @@ import au.edu.unimelb.processmining.accuracy.abstraction.LogAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.markovian.MarkovAbstraction;
 import com.raffaeleconforti.context.FakePluginContext;
 import com.raffaeleconforti.log.util.LogImporter;
-import com.sun.corba.se.spi.ior.ObjectKey;
 import de.drscc.automaton.Automaton;
 import de.drscc.importer.ImportProcessModel;
 
@@ -17,13 +16,15 @@ import au.edu.unimelb.processmining.accuracy.abstraction.ProcessAbstraction;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.model.XLog;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.transitionsystem.TransitionSystem;
+import org.processmining.models.semantics.petrinet.Marking;
 import org.processmining.plugins.tsml.importing.TsmlImportTS;
 
 /**
  * Created by Adriano on 23/01/18.
  */
-public class Calculator {
+public class MarkovianAccuracyCalculator {
     public enum Abs {MARK, SET}
     public enum Opd {SPL, HUN, GRD}
 
@@ -36,7 +37,7 @@ public class Calculator {
 
 
     public static void main(String[] args) {
-        Calculator calculator = new Calculator();
+        MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
         long start = System.currentTimeMillis();
 /*
         if( args.length == 3 ) {
@@ -71,7 +72,7 @@ public class Calculator {
         double fscore = -1;
 
         try {
-            if (importLog(logP, type) && importProcess(processP, type)) {
+            if (importLogFromFile(logP, type) && importProcessFromFile(processP, type)) {
                 switch(opd) {
                     case SPL:
                         precision = processAbstraction.minus(logAbstraction);
@@ -108,7 +109,51 @@ public class Calculator {
         return accuracy;
     }
 
-    private boolean importLog(String lopP, Abs type) {
+    public double[] accuracy(Abs type, Opd opd, XLog log, Petrinet petrinet, Marking initialMarking, int order) {
+        this.order = order;
+        double precision = -1;
+        double fitness = -1;
+        double fscore = -1;
+
+        try {
+            if (importLog(log, type) && importPetrinet(petrinet, initialMarking, type)) {
+                switch(opd) {
+                    case SPL:
+                        precision = processAbstraction.minus(logAbstraction);
+                        fitness = logAbstraction.minus(processAbstraction);
+                        break;
+                    case HUN:
+                        if(processAbstraction instanceof MarkovAbstraction && logAbstraction instanceof MarkovAbstraction)
+                            precision = ((MarkovAbstraction)processAbstraction).minusHUN(logAbstraction);
+                        break;
+                    case GRD:
+                        precision = ((MarkovAbstraction)processAbstraction).minusGRD(logAbstraction);
+                        break;
+                }
+            } else {
+                System.out.println("ERROR - something went wrong.");
+            }
+
+            fscore = (fitness * precision * 2.0) / (fitness + precision);
+
+//            System.out.println("RESULT - fitness: " + fitness);
+            System.out.println("RESULT - precision: " + precision);
+//            System.out.println("RESULT - f-score: " + fscore);
+
+        } catch(StackOverflowError sofe) {
+            precision = 0.0;
+            System.out.println("RESULT(e) - precision: " + precision);
+//            sofe.printStackTrace();
+        } catch(Exception e) {
+            e.printStackTrace();
+            System.out.println("ERROR - something went wrong with the GED.");
+        }
+
+        double[] accuracy = {fitness, precision, fscore};
+        return accuracy;
+    }
+
+    private boolean importLogFromFile(String lopP, Abs type) {
         XLog xlog;
         System.out.println("INFO - input log: " + lopP);
         try{
@@ -137,7 +182,27 @@ public class Calculator {
         }
     }
 
-    private boolean importProcess(String processP, Abs type) {
+    private boolean importLog (XLog xlog, Abs type){
+        try{
+            log = LogParser.getSimpleLog(xlog, new XEventNameClassifier());
+            switch(type) {
+                case MARK:
+                    logAbstraction = LogAbstraction.markovian(log, order);
+                    break;
+                case SET:
+                    logAbstraction = LogAbstraction.set(log);
+                    break;
+            }
+//            logAbstraction.print();
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("ERROR - impossible to read the log file.");
+            return false;
+        }
+    }
+
+    private boolean importProcessFromFile(String processP, Abs type) {
         ImportProcessModel importer = new ImportProcessModel();
         TransitionSystem transitionSystem = null;
         TsmlImportTS tsImporter;
@@ -184,6 +249,34 @@ public class Calculator {
             return false;
         }
     }
+
+
+    private boolean importPetrinet(Petrinet petrinet,  Marking initialMarking, Abs type) {
+        ImportProcessModel importer = new ImportProcessModel();
+
+        try {
+            automaton = importer.createFSMfromPetrinet(petrinet, initialMarking, null, null);
+            automatonAbstraction = new AutomatonAbstraction(automaton, log);
+
+            switch(type) {
+                case MARK:
+                    automatonAbstraction.generateMarkovianLabels(order);
+                    processAbstraction = ProcessAbstraction.markovian(automatonAbstraction, 2000000);
+                    break;
+                case SET:
+                    automatonAbstraction.generateSetLabels(log.getReverseMap().size()+1);
+                    processAbstraction = ProcessAbstraction.set(automatonAbstraction);
+                    break;
+            }
+
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("ERROR - impossible to read the process file.");
+            return false;
+        }
+    }
+
 
 
 }

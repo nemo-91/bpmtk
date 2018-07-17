@@ -12,7 +12,7 @@ public class KendallTest {
     private static String modelpath = ".\\";
     private static int MAXO = 5;
     private static int LOG = 1;
-    private static Calculator.Opd MODE = Calculator.Opd.GRD;
+    private static MarkovianAccuracyCalculator.Opd MODE = MarkovianAccuracyCalculator.Opd.GRD;
 
     private static boolean YSM = true;
     private static boolean YIM = false;
@@ -35,9 +35,8 @@ public class KendallTest {
         double[] smp_avgtime = new double[14];
         double[] shmp_avgtime = new double[14];
 
-        Calculator calculator = new Calculator();
+        MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
         PrintWriter writer = null;
-
 
         try {
             writer = new PrintWriter(".\\precision_" + System.currentTimeMillis() + ".csv");
@@ -56,7 +55,7 @@ public class KendallTest {
                     if(YSM) {
                         System.out.println("INFO - kendall order " + (o + 1));
                         time = System.currentTimeMillis();
-                        smp[o] = calculator.precision(Calculator.Abs.MARK, MODE, log, smM, o + 1);
+                        smp[o] = calculator.precision(MarkovianAccuracyCalculator.Abs.MARK, MODE, log, smM, o + 1);
                         time = (System.currentTimeMillis() - time) / 1000.00;
                         System.out.println("TIME - " + time);
                         smp_avgtime[o] += time;
@@ -66,7 +65,7 @@ public class KendallTest {
 
                     if(YSHM) {
                         time = System.currentTimeMillis();
-                        shmp[o] = calculator.precision(Calculator.Abs.MARK, MODE, log, shmM, o + 1);
+                        shmp[o] = calculator.precision(MarkovianAccuracyCalculator.Abs.MARK, MODE, log, shmM, o + 1);
                         time = (System.currentTimeMillis() - time) / 1000.00;
                         System.out.println("TIME - " + time);
                         shmp_avgtime[o] += time;
@@ -76,7 +75,7 @@ public class KendallTest {
 
                     if(YIM) {
                         time = System.currentTimeMillis();
-                        imp[o] = calculator.precision(Calculator.Abs.MARK, MODE, log, imM, o + 1);
+                        imp[o] = calculator.precision(MarkovianAccuracyCalculator.Abs.MARK, MODE, log, imM, o + 1);
                         time = (System.currentTimeMillis() - time) / 1000.00;
                         System.out.println("TIME - " + time);
                         imp_avgtime[o] += time;
