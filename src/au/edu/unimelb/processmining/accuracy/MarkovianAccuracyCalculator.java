@@ -34,33 +34,6 @@ public class MarkovianAccuracyCalculator {
     private Abstraction logAbstraction, processAbstraction;
     private int order;
 
-
-
-    public static void main(String[] args) {
-        MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
-        long start = System.currentTimeMillis();
-/*
-        if( args.length == 3 ) {
-            calculator.accuracy(Abs.MARK, Opd.GRD, args[0], args[1], Integer.valueOf(args[2]));
-        } else {
-            System.out.println("ERROR - wrong usage.");
-            System.out.println("RUN - java -cp \"markovian-accuracy.jar;lib\\*\" au.edu.unimelb.processmining.accuracy.Calculator \".\\log.xes\" \".\\model.pnml\" 3");
-        }
-/*/
-        switch( Abs.valueOf(args[0]) ) {
-            case MARK:
-                if( args.length == 5 ) calculator.accuracy(Abs.MARK, Opd.valueOf(args[1]), args[2], args[3], Integer.valueOf(args[4]));
-                break;
-            case SET:
-                if( args.length > 2 ) calculator.accuracy(Abs.SET, Opd.valueOf(args[1]), args[2], args[3], 0);
-                break;
-            default:
-                System.out.println("ERROR - wrong precision type.");
-        }
-
-        System.out.println("eTIME - " + (System.currentTimeMillis() - start) + "ms");
-    }
-
     public double precision(Abs type, Opd opd, String logP, String processP, int order) {
         return accuracy(type, opd, logP, processP, order)[1];
     }

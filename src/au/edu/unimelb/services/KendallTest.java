@@ -1,4 +1,6 @@
-package au.edu.unimelb.processmining.accuracy;
+package au.edu.unimelb.services;
+
+import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
 
 import java.io.PrintWriter;
 
@@ -18,7 +20,7 @@ public class KendallTest {
     private static boolean YIM = false;
     private static boolean YSHM = false;
 
-    public static void main(String args[]) {
+    public void execute(String args[]) {
         String smM, imM, shmM, log;
         int o;
         double kendall_one = 0.0;
