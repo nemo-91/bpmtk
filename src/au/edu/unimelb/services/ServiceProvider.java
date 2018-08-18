@@ -20,7 +20,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAC, SM}
+    public enum TEST_CODE {KEN, MAC, SMT}
 
     public static void main(String[] args) {
 
@@ -37,7 +37,7 @@ public class ServiceProvider {
             case MAC:
                 testProvider.MarkovianAccuracyTest(fargs);
                 break;
-            case SM:
+            case SMT:
                 testProvider.SplitMinerTest(fargs);
                 break;
         }
