@@ -90,16 +90,4 @@ public class MarkovAbstraction extends Abstraction {
         for( Node n : nodes.keySet() ) System.out.println(n.getLabel());
         System.out.println("INFO - edges: " + edges.size() + " nodes: " + nodes.size());
     }
-
-    public void printDOT(String path) {
-        try {
-            PrintWriter writer = new PrintWriter(path);
-            writer.println("digraph markovianabstraction {");
-            for( Edge e : edges.keySet() ) writer.println(e.getSRC() + " -> " + e.getTGT());
-            writer.println("}");
-            writer.close();
-        } catch(Exception e) {
-            System.out.println("ERROR - impossible to print the markovian abstraction.");
-        }
-    }
 }

@@ -135,11 +135,6 @@ public class DirectlyFollowGraphPlus {
 
     public void buildDFGP() {
         System.out.println("DFGP - settings > " + parallelismsThreshold + " : " + percentileFrequencyThreshold + " : " + filterType.toString());
-//        System.out.println("DFGP - [Settings] parallelisms threshold: " + parallelismsThreshold);
-//        System.out.println("DFGP - [Settings] percentile on best: " + percentileOnBest);
-//        System.out.println("DFGP - [Settings] parcentile threshold: " + percentileFrequencyThreshold);
-
-//        System.out.println("DEBUG - NO FILTER");
 
         buildDirectlyFollowsGraph();                //first method to execute
         detectLoops();                              //depends on buildDirectlyFollowsGraph()
@@ -305,6 +300,7 @@ public class DirectlyFollowGraphPlus {
     private void detectParallelisms() {
         int totalParallelisms = 0;
         int confirmedParallelisms = 0;
+        int notParallel = 0;
         boolean priorityCheck;
 
         DFGEdge e2;
@@ -343,12 +339,12 @@ public class DirectlyFollowGraphPlus {
                         parallelisms.get(tgt).add(src);
                         removableEdges.add(e1);
                         removableEdges.add(e2);
-                        totalParallelisms++;
+                        totalParallelisms+=2;
                     } else {
-
 //                    otherwise we remove the least frequent edge, e1 or e2
                         if (parallelismScore > 0) removableEdges.add(e2);
                         else removableEdges.add(e1);
+                        notParallel++;
                     }
             }
         }

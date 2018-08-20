@@ -5,9 +5,12 @@ import au.edu.unimelb.processmining.accuracy.abstraction.markovian.MarkovLabel;
 import au.edu.unimelb.processmining.accuracy.abstraction.markovian.MarkovAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.set.SetAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.set.SetLabel;
+import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction;
 
 import java.util.Map;
 import java.util.StringTokenizer;
+
+import static au.edu.unimelb.processmining.accuracy.abstraction.markovian.MarkovLabel.INIT;
 
 /**
  * Created by Adriano on 23/01/18.
@@ -90,4 +93,46 @@ public class LogAbstraction {
         return abstraction;
     }
 
+    public static SubtraceAbstraction subtrace(SimpleLog log, int order) {
+        SubtraceAbstraction abstraction = new SubtraceAbstraction();
+        Map<String, Integer> traces = log.getTraces();
+
+        StringTokenizer trace;
+        int traceFrequency;
+
+        int event;
+        MarkovLabel label;
+
+        order++;
+
+        for( String t : traces.keySet() ) {
+            trace = new StringTokenizer(t, "::");
+            traceFrequency = traces.get(t);
+//            System.out.println("DEBUG - (" + traceFrequency + ")trace: " + t);
+
+//            consuming the start event (artificial, always 0)
+            trace.nextToken();
+            label = new MarkovLabel(order);
+
+//            we read the next event of the trace until it is finished
+//            we do no parse the final artificial event (that is -1)
+
+            int i = 1;
+            while( i < order && trace.hasMoreTokens() && ((event = Integer.valueOf(trace.nextToken())) != -1) ) {
+                label.add(event);
+                i++;
+            }
+
+            abstraction.addSubtrace(label.print(), traceFrequency);
+
+            while( trace.hasMoreTokens() && ((event = Integer.valueOf(trace.nextToken())) != -1) ) {
+                label.add(event);
+                abstraction.addSubtrace(label.print(), traceFrequency);
+            }
+
+            label.add(INIT);
+            abstraction.addSubtrace(label.print(), traceFrequency);
+        }
+        return abstraction;
+    }
 }

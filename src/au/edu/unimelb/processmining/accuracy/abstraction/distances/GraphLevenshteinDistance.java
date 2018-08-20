@@ -12,6 +12,34 @@ public class GraphLevenshteinDistance {
 
     public GraphLevenshteinDistance(){}
 
+
+    public double getSubtracesDistance(Set<String> subtraces1, Set<String> subtraces2) {
+        double[][] matrix;
+        double distance;
+        boolean contained = subtraces2.size() > subtraces1.size();
+        int size = Math.max(subtraces1.size(), subtraces2.size());
+        int leftovers = Math.abs(subtraces1.size() - subtraces2.size());
+
+        matrix = new double[size][size];
+        for(int i=0; i < size; i++) for(int j=0; j < size; j++) matrix[i][j] = 1.0;
+
+        int r = 0;
+        for( String st1 : subtraces1 ) {
+            int c = 0;
+            for( String st2 : subtraces2 ) {
+                matrix[r][c] = (double)computeLevenshteinDistance(st1, st2);
+                c++;
+            }
+            r++;
+        }
+
+        distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
+        if(contained) distance -= leftovers;
+
+        return distance/subtraces1.size();
+    }
+
+
 //    this should be edges1 - edges2, leftover of edges2 are okay.
     public double getDistance(Set<Edge> edges1, Set<Edge> edges2) {
         double[][] matrix;

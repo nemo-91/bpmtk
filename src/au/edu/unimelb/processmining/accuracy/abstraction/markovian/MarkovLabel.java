@@ -11,12 +11,14 @@ public class MarkovLabel {
     private Integer[] label;
     private int order;
     private int i;
-    private int last;
+//    private int last;
+
+    public final static int INIT = 0;
 
     public MarkovLabel(int order) {
         this.order = order;
         label = new Integer[order];
-        for(i = 0; i < order; i++) label[i] = 0;
+        for(i = 0; i < order; i++) label[i] = INIT;
         i = 0;
 //            last = Integer.MIN_VALUE;
     }
@@ -39,7 +41,7 @@ public class MarkovLabel {
     }
 
     public void add(int next) {
-        if(last == next) return;
+//        if(last == next) return;
 //            last = next;
         label[i%order] = next;
         i++;

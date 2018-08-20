@@ -61,7 +61,7 @@ public class SplitMinerPlugin {
         SplitMiner sm = new SplitMiner();
         output = sm.mineBPMNModel(log, new XEventNameClassifier(), result.getPercentileFrequencyThreshold(), result.getParallelismsThreshold(),
                                         result.getFilterType(), result.isParallelismsFirst(),
-                                        result.isReplaceIORs(), result.isRemoveSelfLoops(), result.getStructuringTime());
+                                        result.isReplaceIORs(), result.isRemoveLoopActivities(), result.getStructuringTime());
 
         return output;
     }

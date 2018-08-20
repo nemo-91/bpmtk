@@ -57,7 +57,7 @@ public class SplitMiner {
     private BPMNDiagram bpmnDiagram;
 
     private boolean replaceIORs;
-    private boolean removeSelfLoops;
+    private boolean removeLoopActivities;
     private SplitMinerUIResult.StructuringTime structuringTime;
 
     private int gateCounter;
@@ -75,18 +75,14 @@ public class SplitMiner {
 
     public BPMNDiagram mineBPMNModel(XLog log, XEventClassifier xEventClassifier, double percentileFrequencyThreshold, double parallelismsThreshold,
                                      DFGPUIResult.FilterType filterType, boolean parallelismsFirst,
-                                     boolean replaceIORs, boolean removeSelfLoops, SplitMinerUIResult.StructuringTime structuringTime)
+                                     boolean replaceIORs, boolean removeLoopActivities, SplitMinerUIResult.StructuringTime structuringTime)
     {
-//        System.out.println("SplitMiner - starting ...");
-//        System.out.println("SplitMiner - [Settings] replace IORs: " + replaceIORs);
-//        System.out.println("SplitMiner - [Settings] structuring: " + structuringTime);
-
         this.replaceIORs = replaceIORs;
-        this.removeSelfLoops = removeSelfLoops;
+        this.removeLoopActivities = removeLoopActivities;
         this.structuringTime = structuringTime;
 
+//        this.log = (new LogParser()).getSimpleLog(log, xEventClassifier, 1.00);
         this.log = LogParser.getSimpleLog(log, xEventClassifier);
-//        System.out.println("SplitMiner - log parsed successfully");
 
         generateDFGP(percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
         try {
@@ -235,7 +231,7 @@ public class SplitMiner {
 
         updateLabels(this.log.getEvents());
 
-        if(!removeSelfLoops) helper.removeSelfLoopMarkers(bpmnDiagram);
+        if(removeLoopActivities) helper.removeLoopActivityMarkers(bpmnDiagram);
 
         if( replaceIORs ) {
 //            helper.expandSplitGateways(bpmnDiagram);

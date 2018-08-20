@@ -17,7 +17,9 @@ import java.util.Set;
  */
 public class ProcessAbstraction {
 
-    public static MarkovAbstraction markovian(AutomatonAbstraction automatonAbstraction, int MAXE) {
+    private static int MAXE = 2000000;
+
+    public static MarkovAbstraction markovian(AutomatonAbstraction automatonAbstraction) {
         MarkovAbstraction abstraction = new MarkovAbstraction();
         AANode src;
         String tl;

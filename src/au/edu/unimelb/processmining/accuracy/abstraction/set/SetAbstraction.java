@@ -62,6 +62,16 @@ public class SetAbstraction extends Abstraction {
         return difference;
     }
 
+    public double minusGRD(Abstraction a) {
+//        TODO
+        return this.minus(a);
+    }
+
+    public double minusHUN(Abstraction a) {
+//        TODO
+        return this.minus(a);
+    }
+
     public double density() {
         return (double)edges.size()/(double)(nodes.size()*nodes.size());
     }
@@ -70,17 +80,5 @@ public class SetAbstraction extends Abstraction {
         for( Edge e : edges.keySet() ) System.out.println(e.print() + " * " + edges.get(e) );
         for( String n : nodes.keySet() ) System.out.println(n);
         System.out.println("INFO - edges: " + edges.size() + " nodes: " + nodes.size());
-    }
-
-    public void printDOT(String path) {
-        try {
-            PrintWriter writer = new PrintWriter(path);
-            writer.println("digraph setabstraction {");
-            for( Edge e : edges.keySet() ) writer.println(e.getSRC() + " -> " + e.getTGT());
-            writer.println("}");
-            writer.close();
-        } catch(Exception e) {
-            System.out.println("ERROR - impossible to print the set abstraction.");
-        }
     }
 }
