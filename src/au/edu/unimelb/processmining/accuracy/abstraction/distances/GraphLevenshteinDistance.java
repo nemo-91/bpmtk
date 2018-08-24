@@ -1,9 +1,12 @@
 package au.edu.unimelb.processmining.accuracy.abstraction.distances;
 
 import au.edu.unimelb.processmining.accuracy.abstraction.Edge;
+import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrace;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.*;
+
+import static au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction.SCALE;
 
 /**
  * Created by Adriano on 09/02/18.
@@ -13,21 +16,48 @@ public class GraphLevenshteinDistance {
     public GraphLevenshteinDistance(){}
 
 
-    public double getSubtracesDistance(Set<String> subtraces1, Set<String> subtraces2) {
+    public double averageDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
+        Map<Subtrace, Double> minDistances;
+        double distance;
+        int size = subtraces1.size();
+        int[] st1ia, st2ia;
+
+        minDistances = new HashMap<>();
+
+        for( Subtrace st1 : subtraces1 ) {
+            st1ia = st1.printIA();
+            minDistances.put(st1, 1.0);
+            for( Subtrace st2 : subtraces2 ) {
+                st2ia = st2.printIA();
+                distance = (double)computeLevenshteinArrayDistance(st1ia, st2ia)/(double) order;
+                if( minDistances.get(st1) > distance ) minDistances.put(st1, distance);
+            }
+        }
+
+        distance = 0.0;
+        for( double d : minDistances.values() ) distance += d;
+
+        return distance/size;
+    }
+
+    public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
         double[][] matrix;
         double distance;
         boolean contained = subtraces2.size() > subtraces1.size();
         int size = Math.max(subtraces1.size(), subtraces2.size());
         int leftovers = Math.abs(subtraces1.size() - subtraces2.size());
+        int[] st1ia, st2ia;
 
         matrix = new double[size][size];
         for(int i=0; i < size; i++) for(int j=0; j < size; j++) matrix[i][j] = 1.0;
 
         int r = 0;
-        for( String st1 : subtraces1 ) {
+        for( Subtrace st1 : subtraces1 ) {
+            st1ia = st1.printIA();
             int c = 0;
-            for( String st2 : subtraces2 ) {
-                matrix[r][c] = (double)computeLevenshteinDistance(st1, st2);
+            for( Subtrace st2 : subtraces2 ) {
+                st2ia = st2.printIA();
+                matrix[r][c] = (double)computeLevenshteinArrayDistance(st1ia, st2ia)/(double) order;
                 c++;
             }
             r++;
@@ -36,7 +66,7 @@ public class GraphLevenshteinDistance {
         distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
         if(contained) distance -= leftovers;
 
-        return distance/subtraces1.size();
+        return (distance/(subtraces1.size()*SCALE))*SCALE;
     }
 
 
@@ -169,17 +199,30 @@ public class GraphLevenshteinDistance {
 
         for (int i = 1; i <= lhs.length(); i++)
             for (int j = 1; j <= rhs.length(); j++)
-                distance[i][j] = minimum(
-                        distance[i - 1][j] + 1,
-                        distance[i][j - 1] + 1,
+                distance[i][j] = Math.min(
+                        Math.min( distance[i - 1][j] + 1, distance[i][j - 1] + 1 ),
                         distance[i - 1][j - 1] + ((lhs.charAt(i - 1) == rhs.charAt(j - 1)) ? 0 : 1));
 
         return distance[lhs.length()][rhs.length()];
     }
 
-    private int minimum(int a, int b, int c) {
-        return Math.min(Math.min(a, b), c);
+    private int computeLevenshteinArrayDistance(int[] lhs, int[] rhs) {
+        int[][] distance = new int[lhs.length + 1][rhs.length + 1];
+
+        for (int i = 0; i <= lhs.length; i++)
+            distance[i][0] = i;
+        for (int j = 1; j <= rhs.length; j++)
+            distance[0][j] = j;
+
+        for (int i = 1; i <= lhs.length; i++)
+            for (int j = 1; j <= rhs.length; j++)
+                distance[i][j] = Math.min(
+                        Math.min( distance[i - 1][j] + 1, distance[i][j - 1] + 1 ),
+                        distance[i - 1][j - 1] + ((lhs[i - 1] == rhs[j - 1]) ? 0 : 1));
+
+        return distance[lhs.length][rhs.length];
     }
+
 
     private class Pair {
         int r, c;

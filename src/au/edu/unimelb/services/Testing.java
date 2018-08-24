@@ -1,13 +1,17 @@
 package au.edu.unimelb.services;
 
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
+import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator.Opd;
+import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator.Abs;
 
+
+import java.io.File;
 import java.io.PrintWriter;
 
 /**
  * Created by Adriano on 15/02/18.
  */
-public class KendallTest {
+public class Testing {
 
     private static String logpath = ".\\";
 //    private static String logpath = ".\\PRT";
@@ -20,7 +24,7 @@ public class KendallTest {
     private static boolean YIM = false;
     private static boolean YSHM = false;
 
-    public void execute(String args[]) {
+    public void kendallTest(String args[]) {
         String smM, imM, shmM, log;
         int o;
         double kendall_one = 0.0;
@@ -132,6 +136,54 @@ public class KendallTest {
 
         kendall = (double)(concordant - discordant)/(double)count;
         return kendall;
+    }
+
+    public static void accuracyOnModelsSet(Abs aType, Opd oType, String modelsDir, String logPath, int maxOrder) {
+        MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
+        double[] accuracy;
+        long[] time;
+        String modelPath;
+        PrintWriter writer = null;
+        int order;
+
+        try {
+            writer = new PrintWriter(".\\" + aType.toString() + "_" + oType.toString() + "o2-" + maxOrder + "_" + System.currentTimeMillis() + ".csv");
+            writer.println("log,order,fitness,precision,f-score,etime-fit, etime-prec");
+        } catch(Exception e) { System.out.println("ERROR - impossible to print the markovian the results."); }
+
+        try {
+            File dir = new File(modelsDir);
+            File[] directoryListing = dir.listFiles();
+            if( directoryListing != null ) {
+                for( File model : directoryListing ) {
+                    modelPath = model.getCanonicalPath();
+                    if( modelPath.endsWith(".pnml") ){
+                        order = 2;
+                        while( order < maxOrder ) {
+                            try {
+                                accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
+                                time = calculator.getExecutionTime();
+                                writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + time[0]+time[3] + "," + time[1]+time[3]);
+                                writer.flush();
+                                order++;
+                            } catch (Exception e) {
+                                break;
+                            } catch (Error e) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                System.out.println("ERROR - input path not a directory.");
+                return;
+            }
+        } catch ( Exception e ) {
+            System.out.println("ERROR - " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+        writer.close();
     }
 
 }

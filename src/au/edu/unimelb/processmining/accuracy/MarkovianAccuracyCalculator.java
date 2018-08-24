@@ -33,18 +33,25 @@ public class MarkovianAccuracyCalculator {
     private Automaton automaton;
     private AutomatonAbstraction automatonAbstraction;
     private Abstraction logAbstraction, processAbstraction;
+    private long[] time;
     private int order;
 
 
     public double[] accuracy(Abs type, Opd opd, String logP, String processP, int order) {
         double[] accuracy = new double[3];
+        time = new long[4];
 
         try {
             this.order = order;
+            System.out.println("INFO - abs : opt : order > " + type + " : " + opd + " : " + order);
+            time[3] = System.currentTimeMillis();
             if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) {
+                time[3] = System.currentTimeMillis() - time[3];
                 accuracy[0] = computeFitness(opd);
                 accuracy[1] = computePrecision(opd);
                 accuracy[2] = (2.0 * accuracy[0] * accuracy[1])/(accuracy[0] + accuracy[1]);
+                accuracy[2] = accuracy[0] == Double.NaN ? 0 : accuracy[2];
+                time[2] = time[0] + time[1];
                 System.out.println("RESULT - fscore: " + accuracy[2]);
             } else System.out.println("ERROR - something went wrong importing the inputs.");
         } catch(StackOverflowError sofe) {
@@ -59,15 +66,20 @@ public class MarkovianAccuracyCalculator {
 
     public double precision(Abs type, Opd opd, String logP, String processP, int order) {
         double precision = -1.0;
+        time = new long[4];
 
         try {
             this.order = order;
-            if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) precision = computePrecision(opd);
+            time[3] = System.currentTimeMillis();
+            if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) {
+                time[3] = System.currentTimeMillis() - time[3];
+                precision = computePrecision(opd);
+            }
             else System.out.println("ERROR - something went wrong importing the inputs.");
         } catch(StackOverflowError sofe) {
             precision = 0.0;
             System.out.println("RESULT(sofe) - precision: " + precision);
-//            sofe.printStackTrace();
+            sofe.printStackTrace();
             return 0.0;
         } catch(Exception e) {
             e.printStackTrace();
@@ -79,15 +91,20 @@ public class MarkovianAccuracyCalculator {
 
     public double fitness(Abs type, Opd opd, String logP, String processP, int order) {
         double fitness = -1.0;
+        time = new long[4];
 
         try {
             this.order = order;
-            if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) fitness = computeFitness(opd);
+            time[3] = System.currentTimeMillis();
+            if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) {
+                time[3] = System.currentTimeMillis() - time[3];
+                fitness = computeFitness(opd);
+            }
             else System.out.println("ERROR - something went wrong importing the inputs.");
         } catch(StackOverflowError sofe) {
             fitness = 0.0;
             System.out.println("RESULT(sofe) - fitness: " + fitness);
-//            sofe.printStackTrace();
+            sofe.printStackTrace();
             return 0.0;
         } catch(Exception e) {
             e.printStackTrace();
@@ -99,6 +116,7 @@ public class MarkovianAccuracyCalculator {
 
     private double computePrecision(Opd opd) {
         double precision = 0.0;
+        time[1] = System.currentTimeMillis();
 
         switch(opd) {
             case SPL:
@@ -112,6 +130,7 @@ public class MarkovianAccuracyCalculator {
                 break;
         }
 
+        time[1] = System.currentTimeMillis() - time[1];
         System.out.println("RESULT - precision: " + precision);
         return precision;
     }
@@ -119,6 +138,7 @@ public class MarkovianAccuracyCalculator {
 
     private double computeFitness(Opd opd) {
         double fitness = 0.0;
+        time[0] = System.currentTimeMillis();
 
         switch(opd) {
             case SPL:
@@ -132,6 +152,7 @@ public class MarkovianAccuracyCalculator {
                 break;
         }
 
+        time[0] = System.currentTimeMillis() - time[0];
         System.out.println("RESULT - fitness: " + fitness);
         return fitness;
     }
@@ -139,6 +160,7 @@ public class MarkovianAccuracyCalculator {
     private boolean importLogFromFile(String lopP, Abs type) {
         XLog xlog;
         System.out.println("INFO - input log: " + lopP);
+
         try{
             if(!lopP.endsWith(".txt")) {
                 xlog = LogImporter.importFromFile(new XFactoryNaiveImpl(), lopP);
@@ -150,6 +172,7 @@ public class MarkovianAccuracyCalculator {
             switch(type) {
                 case MARK:
                     logAbstraction = LogAbstraction.markovian(log, order);
+//                    logAbstraction.print();
                     break;
                 case STA:
                     logAbstraction = LogAbstraction.subtrace(log, order);
@@ -157,7 +180,6 @@ public class MarkovianAccuracyCalculator {
                     break;
             }
 
-//            logAbstraction.print();
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -167,6 +189,7 @@ public class MarkovianAccuracyCalculator {
     }
 
     private boolean importLog (XLog xlog, Abs type){
+
         try{
             log = LogParser.getSimpleLog(xlog, new XEventNameClassifier());
 
@@ -217,11 +240,12 @@ public class MarkovianAccuracyCalculator {
 
             switch(type) {
                 case MARK:
-                    automatonAbstraction.generateMarkovianLabels(order);
-                    processAbstraction = ProcessAbstraction.markovian(automatonAbstraction);
+                    processAbstraction = (new ProcessAbstraction(automatonAbstraction)).markovian(order);
+//                    processAbstraction.print();
                     break;
                 case STA:
-                    processAbstraction = new SubtraceAbstraction();
+                    processAbstraction = (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
+                    processAbstraction.print();
                     break;
             }
 
@@ -243,11 +267,10 @@ public class MarkovianAccuracyCalculator {
 
             switch(type) {
                 case MARK:
-                    automatonAbstraction.generateMarkovianLabels(order);
-                    processAbstraction = ProcessAbstraction.markovian(automatonAbstraction);
+                    processAbstraction = (new ProcessAbstraction(automatonAbstraction)).markovian(order);
                     break;
                 case STA:
-                    processAbstraction = new SubtraceAbstraction();
+                    processAbstraction = (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
                     break;
             }
 
@@ -259,6 +282,6 @@ public class MarkovianAccuracyCalculator {
         }
     }
 
-
+    public long[] getExecutionTime() { return time; }
 
 }

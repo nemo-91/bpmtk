@@ -21,7 +21,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM}
 
     public static void main(String[] args) {
 
@@ -33,7 +33,7 @@ public class ServiceProvider {
 
         switch(code) {
             case KEN:
-                (new KendallTest()).execute(fargs);
+                (new Testing()).kendallTest(fargs);
                 break;
             case MAP:
                 testProvider.MarkovianPrecisionService(fargs);
@@ -50,6 +50,9 @@ public class ServiceProvider {
             case ISL:
                 testProvider.importSimpleLog8020(fargs);
                 break;
+            case AOM:
+                Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
+                break;
         }
 
     }
@@ -59,7 +62,7 @@ public class ServiceProvider {
         long start = System.currentTimeMillis();
 
         if( args.length == 5 ) {
-            calculator.accuracy(MarkovianAccuracyCalculator.Abs.MARK, MarkovianAccuracyCalculator.Opd.valueOf(args[0]), args[1], args[2], Integer.valueOf(args[3]));
+            calculator.accuracy(MarkovianAccuracyCalculator.Abs.valueOf(args[0]), MarkovianAccuracyCalculator.Opd.valueOf(args[1]), args[2], args[3], Integer.valueOf(args[4]));
         } else {
             System.out.println("ERROR - wrong usage.");
             System.out.println("RUN> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider MAC GRD log-path model-path 3");
