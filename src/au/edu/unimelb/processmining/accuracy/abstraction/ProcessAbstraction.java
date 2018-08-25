@@ -51,7 +51,7 @@ public class ProcessAbstraction {
             if( !explored.containsKey(source) ) explored.put(source, new HashSet<>());
             tmpExplored = explored.get(source);
 
-            for( Subtrace subtrace : source.getSubtraces() ) {
+            for( Subtrace subtrace : new HashSet<>(source.getSubtraces()) ) {
 //                System.out.println("debug - label " + source.getID() + " - " + label);
                 if( tmpExplored.contains(subtrace) ) continue;
                 else tmpExplored.add(subtrace);
