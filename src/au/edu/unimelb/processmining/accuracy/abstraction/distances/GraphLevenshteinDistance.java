@@ -63,6 +63,7 @@ public class GraphLevenshteinDistance {
             r++;
         }
 
+        System.out.println("DEBUG - starting HUN...");
         distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
         if(contained) distance -= leftovers;
 

@@ -4,15 +4,18 @@ public class Subtrace {
     private int[] label;
     private int order;
     private int i;
+    private boolean full;
     private boolean complete;
 
     public final static int INIT = 0;
+    private final static int START = 0;
 
     public Subtrace(int order) {
         this.order = order;
         label = new int[order];
         for(i = 0; i < order; i++) label[i] = INIT;
-        i = 1;
+        i = START;
+        full = false;
         complete = false;
     }
 
@@ -21,6 +24,7 @@ public class Subtrace {
         this.label = new int[order];
         for(i = 0; i < order; i++) this.label[i] = new Integer(label.label[i]);
         this.i = label.i;
+        this.full = label.full;
         this.complete = label.complete;
     }
 
@@ -30,26 +34,31 @@ public class Subtrace {
     }
 
     public void add(int next) {
+        if(next == INIT) {
+            complete = true;
+            return;
+        }
+
         label[i] = next;
         i++;
         if(i == order) {
             i = 0;
-            complete = true;
+            full = true;
         }
     }
 
     public String print() {
         String l = ":";
 
-        if(complete) {
+        if(full) {
             for(int j=0; j<order; j++) {
                 l = l + label[i%order] + ":";
                 i++;
             }
             i = i%order;
         } else {
-            if( i==1 || label[i-1] != INIT ) return null;
-            for(int j=0; j<i; j++) l = l + label[j] + ":";
+            if( complete ) for(int j=0; j<i; j++) l = l + label[j] + ":";
+            else return null;
         }
 
         return l;
@@ -58,13 +67,15 @@ public class Subtrace {
     public String forcePrint() {
         String l = ":";
 
-        if(complete) {
+        if(full) {
             for(int j=0; j<order; j++) {
                 l = l + label[i%order] + ":";
                 i++;
             }
             i = i%order;
-        } else for(int j=0; j<i; j++) l = l + label[j] + ":";
+        } else {
+            for(int j=0; j<i; j++) l = l + label[j] + ":";
+        }
 
         return l;
     }
@@ -72,7 +83,7 @@ public class Subtrace {
     public int[] printIA() {
         int[] ia;
 
-        if(complete) {
+        if(full) {
             ia = new int[order];
             for(int j=0; j<order; j++) {
                 ia[j] = label[i%order];
@@ -80,19 +91,16 @@ public class Subtrace {
             }
             i = i%order;
         } else {
-            if( i==1 || label[i-1] != INIT ) return null;
-            ia = new int[i];
-            for(int j=0; j<i; j++) ia[j] = label[j];
+            if( complete ) {
+                ia = new int[i];
+                for(int j=0; j<i; j++) ia[j] = label[j];
+            } else return null;
         }
 
         return ia;
     }
 
-    public boolean isComplete() {
-        if( complete ) return true;
-        else if( i==1 || label[i-1] != INIT ) return false;
-        return true;
-    }
+    public boolean isPrintable() { return (full || complete); }
 
     @Override
     public int hashCode() {

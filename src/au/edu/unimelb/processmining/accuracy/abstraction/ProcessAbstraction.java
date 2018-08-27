@@ -32,7 +32,7 @@ public class ProcessAbstraction {
     public SubtraceAbstraction subtrace(int order) {
         SubtraceAbstraction abstraction = new SubtraceAbstraction(order);
 
-//        System.out.println("DEBUG - converting automaton to subtrace abstraction...");
+        System.out.println("DEBUG - converting automaton to subtrace abstraction...");
 
         AANode source = automatonAbstraction.getSource();
         ArrayList<AANode> toVisit = new ArrayList<>();

@@ -24,7 +24,7 @@ public class SubtraceAbstraction extends Abstraction {
     }
 
     public boolean addSubtrace(Subtrace subtrace, int frequency) {
-        if( !subtrace.isComplete() ) return false;
+        if( !subtrace.isPrintable() ) return false;
         boolean recorded = subtraces.containsKey(subtrace);
 
         if( recorded ) {
@@ -61,12 +61,21 @@ public class SubtraceAbstraction extends Abstraction {
     }
 
     public double minusGRD(Abstraction a) {
-//        TODO
+        Set<Subtrace> leftovers;
+
         if( !(a instanceof SubtraceAbstraction) ) return -1;
         SubtraceAbstraction m = (SubtraceAbstraction) a;
 
+        leftovers = new HashSet<>(this.subtraces.keySet());
+
+        for( Subtrace st : m.subtraces.keySet() ) leftovers.remove(st);
+        System.out.println("DEBUG - before : after - " + this.subtraces.size() + " : " + leftovers.size());
+
+        if( leftovers.isEmpty() ) return 1;
+
+
         GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
-        return 1 - gld.averageDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
+        return 1 - gld.getSubtracesDistance(leftovers, m.subtraces.keySet(), order);
     }
 
     public double density(){ return 1.0; }
