@@ -42,14 +42,16 @@ public class GraphLevenshteinDistance {
 
     public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
         double[][] matrix;
-        double distance;
+        double distance = 0;
         boolean contained = subtraces2.size() > subtraces1.size();
         int size = Math.max(subtraces1.size(), subtraces2.size());
+        int rows = subtraces1.size();
+        int cols = subtraces2.size();
         int leftovers = Math.abs(subtraces1.size() - subtraces2.size());
         int[] st1ia, st2ia;
 
-        matrix = new double[size][size];
-        for(int i=0; i < size; i++) for(int j=0; j < size; j++) matrix[i][j] = 1.0;
+        matrix = new double[rows][cols];
+        for(int i=0; i < rows; i++) for(int j=0; j < cols; j++) matrix[i][j] = 1.0;
 
         int r = 0;
         for( Subtrace st1 : subtraces1 ) {
@@ -63,9 +65,26 @@ public class GraphLevenshteinDistance {
             r++;
         }
 
-        System.out.println("DEBUG - starting HUN...");
-        distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
-        if(contained) distance -= leftovers;
+        System.out.print("DEBUG - starting HUN... ");
+//        distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
+//        if(contained) distance -= leftovers;
+
+        HU2 hu2 = new HU2(matrix);
+        int[] matches = hu2.execute();
+
+
+        for(int i =0; i < rows; i++)
+            if(matches[i] == -1) {
+                System.out.print("-1 : ");
+                distance += 1;
+            }
+            else {
+                System.out.print(matrix[i][matches[i]] + " : ");
+                distance += matrix[i][matches[i]];
+            }
+
+
+        System.out.println(" ... DONE! ");
 
         return (distance/(subtraces1.size()*SCALE))*SCALE;
     }
