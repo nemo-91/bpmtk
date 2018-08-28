@@ -2,7 +2,6 @@ package au.edu.unimelb.processmining.accuracy.abstraction.distances;
 
 import au.edu.unimelb.processmining.accuracy.abstraction.Edge;
 import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrace;
-import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.*;
 
@@ -43,11 +42,8 @@ public class GraphLevenshteinDistance {
     public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
         double[][] matrix;
         double distance = 0;
-        boolean contained = subtraces2.size() > subtraces1.size();
-        int size = Math.max(subtraces1.size(), subtraces2.size());
         int rows = subtraces1.size();
         int cols = subtraces2.size();
-        int leftovers = Math.abs(subtraces1.size() - subtraces2.size());
         int[] st1ia, st2ia;
 
         matrix = new double[rows][cols];
@@ -66,25 +62,13 @@ public class GraphLevenshteinDistance {
         }
 
         System.out.print("DEBUG - starting HUN... ");
-//        distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
-//        if(contained) distance -= leftovers;
 
-        HU2 hu2 = new HU2(matrix);
+        HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
         int[] matches = hu2.execute();
 
-
         for(int i =0; i < rows; i++)
-            if(matches[i] == -1) {
-                System.out.print("-1 : ");
-                distance += 1;
-            }
-            else {
-                System.out.print(matrix[i][matches[i]] + " : ");
-                distance += matrix[i][matches[i]];
-            }
-
-
-        System.out.println(" ... DONE! ");
+            if(matches[i] == -1)  distance += 1;
+            else distance += matrix[i][matches[i]];
 
         return (distance/(subtraces1.size()*SCALE))*SCALE;
     }
@@ -94,23 +78,16 @@ public class GraphLevenshteinDistance {
     public double getDistance(Set<Edge> edges1, Set<Edge> edges2) {
         double[][] matrix;
         String src1, src2, tgt1, tgt2;
-        double distance;
+        double distance = 0.0;
         double d, ds, dt;
         int ls1, lt1;
         int r, c;
 
-        boolean contained = edges2.size() > edges1.size();
-        int size = Math.max(edges1.size(), edges2.size());
-        int leftovers = Math.abs(edges1.size() - edges2.size());
-        double quicktest = (double)leftovers/(double)edges1.size();
+        int rows = edges1.size();
+        int cols = edges2.size();
 
-        if( !contained && quicktest > 0.99 ) return quicktest;
-
-//        System.out.println("DEBUG - edges1 " + edges1.size());
-//        System.out.println("DEBUG - edges2 " + edges2.size());
-
-        matrix = new double[size][size];
-        for(int i=0; i < size; i++) for(int j=0; j < size; j++) matrix[i][j] = 1.0;
+        matrix = new double[rows][cols];
+        for(int i=0; i < rows; i++) for(int j=0; j < cols; j++) matrix[i][j] = 1.0;
 
         r = 0;
         for( Edge e1 : edges1 ) {
@@ -125,22 +102,19 @@ public class GraphLevenshteinDistance {
                 ds = (double)computeLevenshteinDistance(src1, src2)/(double)Math.max(ls1, src2.length());
                 dt = (double)computeLevenshteinDistance(tgt1, tgt2)/(double)Math.max(lt1, tgt2.length());
                 d = (dt + ds)/2.0;
-//                System.out.println("DEBUG - " + ds + " " + dt + " " + d);
                 matrix[r][c] = d;
                 c++;
             }
             r++;
         }
 
-//        for (int i = 0; i < matrix.length; i++) {
-//            for (int j = 0; j < matrix[i].length; j++) {
-//                System.out.print(matrix[i][j] + " ");
-//            }
-//            System.out.println();
-//        }
 
-        distance = HungarianAlgorithm.hgAlgorithm(matrix, "min");
-        if(contained) distance -= leftovers;
+        HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
+        int[] matches = hu2.execute();
+
+        for(int i =0; i < rows; i++)
+            if(matches[i] == -1)  distance += 1;
+            else distance += matrix[i][matches[i]];
 
         return distance/edges1.size();
     }

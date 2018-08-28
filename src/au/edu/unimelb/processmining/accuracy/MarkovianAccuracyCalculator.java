@@ -176,7 +176,7 @@ public class MarkovianAccuracyCalculator {
                     break;
                 case STA:
                     logAbstraction = LogAbstraction.subtrace(log, order);
-                    logAbstraction.print();
+//                    logAbstraction.print();
                     break;
             }
 
@@ -244,7 +244,7 @@ public class MarkovianAccuracyCalculator {
                     break;
                 case STA:
                     processAbstraction = (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
-                    processAbstraction.print();
+//                    processAbstraction.print();
                     break;
             }
 

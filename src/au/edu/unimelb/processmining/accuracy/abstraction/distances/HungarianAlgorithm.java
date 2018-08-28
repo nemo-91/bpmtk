@@ -1,611 +1,337 @@
-/*
- * Created on Apr 25, 2005
- * Updated on May 2, 2013 (support for rectangular matrices)
- * 
- * Konstantinos A. Nedas
- * Department of Spatial Information Science & Engineering
- * University of Maine, Orono, ME 04469-5711, USA
- * kostas@spatial.maine.edu
- * http://www.spatial.maine.edu/~kostas
- *
- * This Java class implements the Hungarian algorithm [a.k.a Munkres' algorithm,
- * a.k.a. Kuhn algorithm, a.k.a. Assignment problem, a.k.a. Marriage problem,
- * a.k.a. Maximum Weighted Maximum Cardinality Bipartite Matching].
- *
- * [It can be used as a method call from within any main (or other function).]
- * It takes two arguments:
- * a. A 2D array (could be rectangular or square) with all values >= 0.
- * b. A string ("min" or "max") specifying whether you want the min or max assignment.
- * [It returns an assignment matrix[min(array.length, array[0].length)][2] that contains
- * the row and col of the elements (in the original inputted array) that make up the
- * optimum assignment or the sum of the assignment weights, depending on which method
- * is used: hgAlgorithmAssignments or hgAlgorithm, respectively.]
- *  
- * [This version contains only scarce comments. If you want to understand the 
- * inner workings of the algorithm, get the tutorial version of the algorithm
- * from the same website you got this one (www.spatial.maine.edu/~kostas).]
- * 
- * Any comments, corrections, or additions would be much appreciated. 
- * Credit due to professor Bob Pilgrim for providing an online copy of the
- * pseudocode for this algorithm (http://216.249.163.93/bob.pilgrim/445/munkres.html)
- * 
- * Feel free to redistribute this source code, as long as this header--with
- * the exception of sections in brackets--remains as part of the file.
- * 
- * Note: Some sections in brackets have been modified as not to provide misinformation
- *       about the current functionality of this code.
- * 
- * Requirements: JDK 1.5.0_01 or better.
- * [Created in Eclipse 3.1M6 (www.eclipse.org).]
- * 
- */
-
 package au.edu.unimelb.processmining.accuracy.abstraction.distances;
 
-import static java.lang.Math.*;
-import java.util.*;
+import java.util.Arrays;
 
+/* Copyright (c) 2012 Kevin L. Stern
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/**
+ * An implementation of the Hungarian algorithm for solving the assignment
+ * problem. An instance of the assignment problem consists of a number of
+ * workers along with a number of jobs and a cost matrix which gives the cost of
+ * assigning the i'th worker to the j'th job at position (i, j). The goal is to
+ * find an assignment of workers to jobs so that no job is assigned more than
+ * one worker and so that no worker is assigned to more than one job in such a
+ * manner so as to minimize the total cost of completing the jobs.
+ * <p>
+ *
+ * An assignment for a cost matrix that has more workers than jobs will
+ * necessarily include unassigned workers, indicated by an assignment value of
+ * -1; in no other circumstance will there be unassigned workers. Similarly, an
+ * assignment for a cost matrix that has more jobs than workers will necessarily
+ * include unassigned jobs; in no other circumstance will there be unassigned
+ * jobs. For completeness, an assignment for a square cost matrix will give
+ * exactly one unique worker to each job.
+ * <p>
+ *
+ * This version of the Hungarian algorithm runs in time O(n^3), where n is the
+ * maximum among the number of workers and the number of jobs.
+ *
+ * @author Kevin L. Stern
+ */
 public class HungarianAlgorithm {
+    private final double[][] costMatrix;
+    private final int rows, cols, dim;
+    private final double[] labelByWorker, labelByJob;
+    private final int[] minSlackWorkerByJob;
+    private final double[] minSlackValueByJob;
+    private final int[] matchJobByWorker, matchWorkerByJob;
+    private final int[] parentWorkerByCommittedJob;
+    private final boolean[] committedWorkers;
 
+    /**
+     * Construct an instance of the algorithm.
+     *
+     * @param costMatrix
+     *          the cost matrix, where matrix[i][j] holds the cost of assigning
+     *          worker i to job j, for all i, j. The cost matrix must not be
+     *          irregular in the sense that all rows must be the same length; in
+     *          addition, all entries must be non-infinite numbers.
+     */
+    public HungarianAlgorithm(double[][] costMatrix) {
+        this.dim = Math.max(costMatrix.length, costMatrix[0].length);
+        this.rows = costMatrix.length;
+        this.cols = costMatrix[0].length;
+        this.costMatrix = new double[this.dim][this.dim];
+        for (int w = 0; w < this.dim; w++) {
+            if (w < costMatrix.length) {
+                if (costMatrix[w].length != this.cols) {
+                    throw new IllegalArgumentException("Irregular cost matrix");
+                }
+                for (int j = 0; j < this.cols; j++) {
+                    if (Double.isInfinite(costMatrix[w][j])) {
+                        throw new IllegalArgumentException("Infinite cost");
+                    }
+                    if (Double.isNaN(costMatrix[w][j])) {
+                        throw new IllegalArgumentException("NaN cost");
+                    }
+                }
+                this.costMatrix[w] = Arrays.copyOf(costMatrix[w], this.dim);
+            } else {
+                this.costMatrix[w] = new double[this.dim];
+            }
+        }
+        labelByWorker = new double[this.dim];
+        labelByJob = new double[this.dim];
+        minSlackWorkerByJob = new int[this.dim];
+        minSlackValueByJob = new double[this.dim];
+        committedWorkers = new boolean[this.dim];
+        parentWorkerByCommittedJob = new int[this.dim];
+        matchJobByWorker = new int[this.dim];
+        Arrays.fill(matchJobByWorker, -1);
+        matchWorkerByJob = new int[this.dim];
+        Arrays.fill(matchWorkerByJob, -1);
+    }
 
-//	Array processing methods
+    /**
+     * Compute an initial feasible solution by assigning zero labels to the
+     * workers and by assigning to each job a label equal to the minimum cost
+     * among its incident edges.
+     */
+    protected void computeInitialFeasibleSolution() {
+        for (int j = 0; j < dim; j++) {
+            labelByJob[j] = Double.POSITIVE_INFINITY;
+        }
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                if (costMatrix[w][j] < labelByJob[j]) {
+                    labelByJob[j] = costMatrix[w][j];
+                }
+            }
+        }
+    }
 
-	public static void generateRandomArray	//Generates random 2-D array.
-	(double[][] array, String randomMethod)	
-	{
-		Random generator = new Random();
-		for (int i=0; i<array.length; i++)
-		{
-			for (int j=0; j<array[i].length; j++)
-			{
-				if (randomMethod.equals("random"))
-					{array[i][j] = generator.nextDouble();}
-				if (randomMethod.equals("gaussian"))
-				{
-						array[i][j] = generator.nextGaussian()/4;		//range length to 1.
-						if (array[i][j] > 0.5) {array[i][j] = 0.5;}		//eliminate outliers.
-						if (array[i][j] < -0.5) {array[i][j] = -0.5;}	//eliminate outliers.
-						array[i][j] = array[i][j] + 0.5;				//make elements positive.
-				}
-			}
-		}
-	}
-	public static double findLargest		//Finds the largest element in a 2D array.
-	(double[][] array)
-	{
-		double largest = Double.NEGATIVE_INFINITY;
-		for (int i=0; i<array.length; i++)
-		{
-			for (int j=0; j<array[i].length; j++)
-			{
-				if (array[i][j] > largest)
-				{
-					largest = array[i][j];
-				}
-			}
-		}
-			
-		return largest;
-	}
-	public static double[][] transpose		//Transposes a double[][] array.
-	(double[][] array)	
-	{
-		double[][] transposedArray = new double[array[0].length][array.length];
-		for (int i=0; i<transposedArray.length; i++)
-		{
-			for (int j=0; j<transposedArray[i].length; j++)
-			{transposedArray[i][j] = array[j][i];}
-		}
-		return transposedArray;
-	}
-	public static double[][] copyOf			//Copies all elements of an array to a new array.
-	(double[][] original)	
-	{
-		double[][] copy = new double[original.length][original[0].length];
-		for (int i=0; i<original.length; i++)
-		{
-			//Need to do it this way, otherwise it copies only memory location
-			System.arraycopy(original[i], 0, copy[i], 0, original[i].length);
-		}
+    /**
+     * Execute the algorithm.
+     *
+     * @return the minimum cost matching of workers to jobs based upon the
+     *         provided cost matrix. A matching value of -1 indicates that the
+     *         corresponding worker is unassigned.
+     */
+    public int[] execute() {
+        /*
+         * Heuristics to improve performance: Reduce rows and columns by their
+         * smallest element, compute an initial non-zero dual feasible solution and
+         * create a greedy matching from workers to jobs of the cost matrix.
+         */
+        reduce();
+        computeInitialFeasibleSolution();
+        greedyMatch();
 
-		return copy;
-	}
-	public static double[][] copyToSquare	//Creates a copy of an array, made square by padding the right or bottom.
-	(double[][] original, double padValue)
-	{
-		int rows = original.length;
-		int cols = original[0].length;	//Assume we're given a rectangular array.
-		double[][] result = null;
+        int w = fetchUnmatchedWorker();
+        while (w < dim) {
+            initializePhase(w);
+            executePhase();
+            w = fetchUnmatchedWorker();
+        }
+        int[] result = Arrays.copyOf(matchJobByWorker, rows);
+        for (w = 0; w < result.length; w++) {
+            if (result[w] >= cols) {
+                result[w] = -1;
+            }
+        }
+        return result;
+    }
 
-		if (rows == cols)	//The matrix is already square.
-		{
-			result = copyOf(original);
-		}
-		else if (rows > cols)	//Pad on some extra columns on the right.
-		{	
-			result = new double[rows][rows];
-			for (int i=0; i<rows; i++)
-			{
-				for (int j=0; j<rows; j++)
-				{
-					if (j >= cols)	//Use the padValue to fill the right columns.
-					{
-						result[i][j] = padValue;
-					}
-					else
-					{
-						result[i][j] = original[i][j];
-					}
-				}
-			}
-		}
-		else
-		{	// rows < cols; Pad on some extra rows at the bottom.
-			result = new double[cols][cols];
-			for (int i=0; i<cols; i++)
-			{
-				for (int j=0; j<cols; j++)
-				{
-					if (i >= rows)	//Use the padValue to fill the bottom rows.
-					{
-						result[i][j] = padValue;
-					}
-					else
-					{
-						result[i][j] = original[i][j];
-					}
-				}
-			}
-		}
+    /**
+     * Execute a single phase of the algorithm. A phase of the Hungarian algorithm
+     * consists of building a set of committed workers and a set of committed jobs
+     * from a root unmatched worker by following alternating unmatched/matched
+     * zero-slack edges. If an unmatched job is encountered, then an augmenting
+     * path has been found and the matching is grown. If the connected zero-slack
+     * edges have been exhausted, the labels of committed workers are increased by
+     * the minimum slack among committed workers and non-committed jobs to create
+     * more zero-slack edges (the labels of committed jobs are simultaneously
+     * decreased by the same amount in order to maintain a feasible labeling).
+     * <p>
+     *
+     * The runtime of a single phase of the algorithm is O(n^2), where n is the
+     * dimension of the internal square cost matrix, since each edge is visited at
+     * most once and since increasing the labeling is accomplished in time O(n) by
+     * maintaining the minimum slack values among non-committed jobs. When a phase
+     * completes, the matching will have increased in size.
+     */
+    protected void executePhase() {
+        while (true) {
+            int minSlackWorker = -1, minSlackJob = -1;
+            double minSlackValue = Double.POSITIVE_INFINITY;
+            for (int j = 0; j < dim; j++) {
+                if (parentWorkerByCommittedJob[j] == -1) {
+                    if (minSlackValueByJob[j] < minSlackValue) {
+                        minSlackValue = minSlackValueByJob[j];
+                        minSlackWorker = minSlackWorkerByJob[j];
+                        minSlackJob = j;
+                    }
+                }
+            }
+            if (minSlackValue > 0) {
+                updateLabeling(minSlackValue);
+            }
+            parentWorkerByCommittedJob[minSlackJob] = minSlackWorker;
+            if (matchWorkerByJob[minSlackJob] == -1) {
+                /*
+                 * An augmenting path has been found.
+                 */
+                int committedJob = minSlackJob;
+                int parentWorker = parentWorkerByCommittedJob[committedJob];
+                while (true) {
+                    int temp = matchJobByWorker[parentWorker];
+                    match(parentWorker, committedJob);
+                    committedJob = temp;
+                    if (committedJob == -1) {
+                        break;
+                    }
+                    parentWorker = parentWorkerByCommittedJob[committedJob];
+                }
+                return;
+            } else {
+                /*
+                 * Update slack values since we increased the size of the committed
+                 * workers set.
+                 */
+                int worker = matchWorkerByJob[minSlackJob];
+                committedWorkers[worker] = true;
+                for (int j = 0; j < dim; j++) {
+                    if (parentWorkerByCommittedJob[j] == -1) {
+                        double slack = costMatrix[worker][j] - labelByWorker[worker]
+                                - labelByJob[j];
+                        if (minSlackValueByJob[j] > slack) {
+                            minSlackValueByJob[j] = slack;
+                            minSlackWorkerByJob[j] = worker;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-		return result;
-	}
+    /**
+     *
+     * @return the first unmatched worker or {@link #dim} if none.
+     */
+    protected int fetchUnmatchedWorker() {
+        int w;
+        for (w = 0; w < dim; w++) {
+            if (matchJobByWorker[w] == -1) {
+                break;
+            }
+        }
+        return w;
+    }
 
+    /**
+     * Find a valid matching by greedily selecting among zero-cost matchings. This
+     * is a heuristic to jump-start the augmentation algorithm.
+     */
+    protected void greedyMatch() {
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                if (matchJobByWorker[w] == -1 && matchWorkerByJob[j] == -1
+                        && costMatrix[w][j] - labelByWorker[w] - labelByJob[j] == 0) {
+                    match(w, j);
+                }
+            }
+        }
+    }
 
-//	Hungarian Algotihm Methods
+    /**
+     * Initialize the next phase of the algorithm by clearing the committed
+     * workers and jobs sets and by initializing the slack arrays to the values
+     * corresponding to the specified root worker.
+     *
+     * @param w
+     *          the worker at which to root the next phase.
+     */
+    protected void initializePhase(int w) {
+        Arrays.fill(committedWorkers, false);
+        Arrays.fill(parentWorkerByCommittedJob, -1);
+        committedWorkers[w] = true;
+        for (int j = 0; j < dim; j++) {
+            minSlackValueByJob[j] = costMatrix[w][j] - labelByWorker[w]
+                    - labelByJob[j];
+            minSlackWorkerByJob[j] = w;
+        }
+    }
 
-	//Core of the algorithm; takes required inputs and returns the assignments
-	public static int[][] hgAlgorithmAssignments(double[][] array, String sumType)
-	{
-		//This variable is used to pad a rectangular array (so it will be picked all last [cost] or first [profit])
-		//and will not interfere with final assignments.  Also, it is used to flip the relationship between weights
-		//when "max" defines it as a profit matrix instead of a cost matrix.  Double.MAX_VALUE is not ideal, since arithmetic
-		//needs to be performed and overflow may occur.
-		double maxWeightPlusOne = findLargest(array) + 1;
+    /**
+     * Helper method to record a matching between worker w and job j.
+     */
+    protected void match(int w, int j) {
+        matchJobByWorker[w] = j;
+        matchWorkerByJob[j] = w;
+    }
 
-		double[][] cost = copyToSquare(array, maxWeightPlusOne);	//Create the cost matrix
+    /**
+     * Reduce the cost matrix by subtracting the smallest element of each row from
+     * all elements of the row as well as the smallest element of each column from
+     * all elements of the column. Note that an optimal assignment for a reduced
+     * cost matrix is optimal for the original cost matrix.
+     */
+    protected void reduce() {
+        for (int w = 0; w < dim; w++) {
+            double min = Double.POSITIVE_INFINITY;
+            for (int j = 0; j < dim; j++) {
+                if (costMatrix[w][j] < min) {
+                    min = costMatrix[w][j];
+                }
+            }
+            for (int j = 0; j < dim; j++) {
+                costMatrix[w][j] -= min;
+            }
+        }
+        double[] min = new double[dim];
+        for (int j = 0; j < dim; j++) {
+            min[j] = Double.POSITIVE_INFINITY;
+        }
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                if (costMatrix[w][j] < min[j]) {
+                    min[j] = costMatrix[w][j];
+                }
+            }
+        }
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                costMatrix[w][j] -= min[j];
+            }
+        }
+    }
 
-		if (sumType.equalsIgnoreCase("max"))	//Then array is a profit array.  Must flip the values because the algorithm finds lowest.
-		{
-			for (int i=0; i<cost.length; i++)		//Generate profit by subtracting from some value larger than everything.
-			{
-				for (int j=0; j<cost[i].length; j++)
-				{
-					cost[i][j] = (maxWeightPlusOne - cost[i][j]);
-				}
-			}
-		}
-
-		int[][] mask = new int[cost.length][cost[0].length];	//The mask array.
-		int[] rowCover = new int[cost.length];					//The row covering vector.
-		int[] colCover = new int[cost[0].length];				//The column covering vector.
-		int[] zero_RC = new int[2];								//Position of last zero from Step 4.
-		int[][] path = new int[cost.length * cost[0].length + 2][2];
-		int step = 1;											
-		boolean done = false;
-		while (done == false)	//main execution loop
-		{
-			switch (step)
-			{
-				case 1:
-					step = hg_step1(step, cost);	 
-					break;
-				case 2:
-					step = hg_step2(step, cost, mask, rowCover, colCover);
-					break;
-				case 3:
-					step = hg_step3(step, mask, colCover);
-					break;
-				case 4:
-					step = hg_step4(step, cost, mask, rowCover, colCover, zero_RC);
-					break;
-				case 5:
-				step = hg_step5(step, mask, rowCover, colCover, zero_RC, path);
-					break;
-				case 6:
-					step = hg_step6(step, cost, rowCover, colCover);
-					break;
-				case 7:
-					done=true;
-					break;
-			}
-		}//end while
-
-		int[][] assignments = new int[array.length][2];	//Create the returned array.
-		int assignmentCount = 0;	//In a input matrix taller than it is wide, the first
-									//assignments column will have to skip some numbers, so
-									//the index will not always match the first column ([0])
-		for (int i=0; i<mask.length; i++)
-		{
-			for (int j=0; j<mask[i].length; j++)
-			{
-				if (i < array.length && j < array[0].length && mask[i][j] == 1)
-				{
-					assignments[assignmentCount][0] = i;
-					assignments[assignmentCount][1] = j;
-					assignmentCount++;
-				}
-			}
-		}
-
-		return assignments;
-	}
-	//Calls hgAlgorithmAssignments and getAssignmentSum to compute the
-	//minimum cost or maximum profit possible.
-	public static double hgAlgorithm(double[][] array, String sumType)
-	{
-		return getAssignmentSum(array, hgAlgorithmAssignments(array, sumType));
-	}
-	public static double getAssignmentSum(double[][] array, int[][] assignments) {
-		//Returns the min/max sum (cost/profit of the assignment) given the
-		//original input matrix and an assignment array (from hgAlgorithmAssignments)
-		double sum = 0; 
-		for (int i=0; i<assignments.length; i++)
-		{
-			sum = sum + array[assignments[i][0]][assignments[i][1]];
-		}
-		return sum;
-	}
-	public static int hg_step1(int step, double[][] cost)
-	{
-		//What STEP 1 does:
-		//For each row of the cost matrix, find the smallest element
-		//and subtract it from from every other element in its row. 
-		
-		double minval;
-
-		for (int i=0; i<cost.length; i++)	
-		{									
-			minval=cost[i][0];
-			for (int j=0; j<cost[i].length; j++)	//1st inner loop finds min val in row.
-			{
-				if (minval>cost[i][j])
-				{
-					minval=cost[i][j];
-				}
-			}
-			for (int j=0; j<cost[i].length; j++)	//2nd inner loop subtracts it.
-			{
-				cost[i][j]=cost[i][j]-minval;
-			}
-		}
-
-		step=2;
-		return step;
-	}
-	public static int hg_step2(int step, double[][] cost, int[][] mask, int[] rowCover, int[] colCover)
-	{
-		//What STEP 2 does:
-		//Marks uncovered zeros as starred and covers their row and column.
-
-		for (int i=0; i<cost.length; i++)
-		{
-			for (int j=0; j<cost[i].length; j++)
-			{
-				if ((cost[i][j]==0) && (colCover[j]==0) && (rowCover[i]==0))
-				{
-					mask[i][j]=1;
-					colCover[j]=1;
-					rowCover[i]=1;
-				}
-			}
-		}
-
-		clearCovers(rowCover, colCover);	//Reset cover vectors.
-
-		step=3;
-		return step;
-	}
-	public static int hg_step3(int step, int[][] mask, int[] colCover)
-	{
-		//What STEP 3 does:
-		//Cover columns of starred zeros. Check if all columns are covered.
-
-		for (int i=0; i<mask.length; i++)	//Cover columns of starred zeros.
-		{
-			for (int j=0; j<mask[i].length; j++)
-			{
-				if (mask[i][j] == 1)
-				{
-					colCover[j]=1;
-				}
-			}
-		}
-
-		int count=0;						
-		for (int j=0; j<colCover.length; j++)	//Check if all columns are covered.
-		{
-			count=count+colCover[j];
-		}
-
-		if (count>=mask.length)	//Should be cost.length but ok, because mask has same dimensions.	
-		{
-			step=7;
-		}
-		else
-		{
-			step=4;
-		}
-
-		return step;
-	}
-	public static int hg_step4(int step, double[][] cost, int[][] mask, int[] rowCover, int[] colCover, int[] zero_RC)
-	{
-		//What STEP 4 does:
-		//Find an uncovered zero in cost and prime it (if none go to step 6). Check for star in same row:
-		//if yes, cover the row and uncover the star's column. Repeat until no uncovered zeros are left
-		//and go to step 6. If not, save location of primed zero and go to step 5.
-
-		int[] row_col = new int[2];	//Holds row and col of uncovered zero.
-		boolean done = false;
-		while (done == false)
-		{
-			row_col = findUncoveredZero(row_col, cost, rowCover, colCover);
-			if (row_col[0] == -1)
-			{
-				done = true;
-				step = 6;
-			}
-			else
-			{
-				mask[row_col[0]][row_col[1]] = 2;	//Prime the found uncovered zero.
-
-				boolean starInRow = false;
-				for (int j=0; j<mask[row_col[0]].length; j++)
-				{
-					if (mask[row_col[0]][j]==1)		//If there is a star in the same row...
-					{
-						starInRow = true;
-						row_col[1] = j;		//remember its column.
-					}
-				}
-
-				if (starInRow==true)	
-				{
-					rowCover[row_col[0]] = 1;	//Cover the star's row.
-					colCover[row_col[1]] = 0;	//Uncover its column.
-				}
-				else
-				{
-					zero_RC[0] = row_col[0];	//Save row of primed zero.
-					zero_RC[1] = row_col[1];	//Save column of primed zero.
-					done = true;
-					step = 5;
-				}
-			}
-		}
-
-		return step;
-	}
-	public static int[] findUncoveredZero	//Aux 1 for hg_step4.
-	(int[] row_col, double[][] cost, int[] rowCover, int[] colCover)
-	{
-		row_col[0] = -1;	//Just a check value. Not a real index.
-		row_col[1] = 0;
-
-		int i = 0; boolean done = false;
-		while (done == false)
-		{
-			int j = 0;
-			while (j < cost[i].length)
-			{
-				if (cost[i][j]==0 && rowCover[i]==0 && colCover[j]==0)
-				{
-					row_col[0] = i;
-					row_col[1] = j;
-					done = true;
-				}
-				j = j+1;
-			}//end inner while
-			i=i+1;
-			if (i >= cost.length)
-			{
-				done = true;
-			}
-		}//end outer while
-
-		return row_col;
-	}
-	public static int hg_step5(int step, int[][] mask, int[] rowCover, int[] colCover, int[] zero_RC, int [][] path)
-	{
-		//What STEP 5 does:	
-		//Construct series of alternating primes and stars. Start with prime from step 4.
-		//Take star in the same column. Next take prime in the same row as the star. Finish
-		//at a prime with no star in its column. Unstar all stars and star the primes of the
-		//series. Erasy any other primes. Reset covers. Go to step 3.
-
-		int count = 0;										//Counts rows of the path matrix.
-		//int[][] path = new int[(mask[0].length + 2)][2];	//Path matrix (stores row and col).
-		path[count][0] = zero_RC[0];						//Row of last prime.
-		path[count][1] = zero_RC[1];						//Column of last prime.
-
-		boolean done = false;
-		while (done == false)
-		{ 
-			int r = findStarInCol(mask, path[count][1]);
-			if (r>=0)
-			{
-				count = count+1;
-				path[count][0] = r;					//Row of starred zero.
-				path[count][1] = path[count-1][1];	//Column of starred zero.
-			}
-			else
-			{
-				done = true;
-			}
-			
-			if (done == false)
-			{
-				int c = findPrimeInRow(mask, path[count][0]);
-				count = count+1;
-				path[count][0] = path[count-1][0];	//Row of primed zero.
-				path[count][1] = c;					//Col of primed zero.
-			}
-		}//end while
-
-		convertPath(mask, path, count);
-		clearCovers(rowCover, colCover);
-		erasePrimes(mask);
-
-		step = 3;
-		return step;
-		
-	}
-	public static int findStarInCol			//Aux 1 for hg_step5.
-	(int[][] mask, int col)
-	{
-		int r = -1;	//Again this is a check value.
-		for (int i=0; i<mask.length; i++)
-		{
-			if (mask[i][col]==1)
-			{
-				r = i;
-			}
-		}
-
-		return r;
-	}
-	public static int findPrimeInRow		//Aux 2 for hg_step5.
-	(int[][] mask, int row)
-	{
-		int c = -1;
-		for (int j=0; j<mask[row].length; j++)
-		{
-			if (mask[row][j]==2)
-			{
-				c = j;
-			}
-		}
-		
-		return c;
-	}
-	public static void convertPath			//Aux 3 for hg_step5.
-	(int[][] mask, int[][] path, int count)
-	{
-		for (int i=0; i<=count; i++)
-		{
-			if (mask[path[i][0]][path[i][1]]==1)
-			{
-				mask[path[i][0]][path[i][1]] = 0;
-			}
-			else
-			{
-				mask[path[i][0]][path[i][1]] = 1;
-			}
-		}
-	}
-	public static void erasePrimes			//Aux 4 for hg_step5.
-	(int[][] mask)
-	{
-		for (int i=0; i<mask.length; i++)
-		{
-			for (int j=0; j<mask[i].length; j++)
-			{
-				if (mask[i][j]==2)
-				{
-					mask[i][j] = 0;
-				}
-			}
-		}
-	}
-	public static void clearCovers			//Aux 5 for hg_step5 (and not only).
-	(int[] rowCover, int[] colCover)
-	{
-		for (int i=0; i<rowCover.length; i++)
-		{
-			rowCover[i] = 0;
-		}
-		for (int j=0; j<colCover.length; j++)
-		{
-			colCover[j] = 0;
-		}
-	}
-	public static int hg_step6(int step, double[][] cost, int[] rowCover, int[] colCover)
-	{
-		//What STEP 6 does:
-		//Find smallest uncovered value in cost: a. Add it to every element of covered rows
-		//b. Subtract it from every element of uncovered columns. Go to step 4.
-
-		double minval = findSmallest(cost, rowCover, colCover);
-
-		for (int i=0; i<rowCover.length; i++)
-		{
-			for (int j=0; j<colCover.length; j++)
-			{
-				if (rowCover[i]==1)
-				{
-					cost[i][j] = cost[i][j] + minval;
-				}
-				if (colCover[j]==0)
-				{
-					cost[i][j] = cost[i][j] - minval;
-				}
-			}
-		}
-			
-		step = 4;
-		return step;
-	}
-	public static double findSmallest		//Aux 1 for hg_step6.
-	(double[][] cost, int[] rowCover, int[] colCover)
-	{
-		double minval = Double.POSITIVE_INFINITY;	//There cannot be a larger cost than this.
-		for (int i=0; i<cost.length; i++)		//Now find the smallest uncovered value.
-		{
-			for (int j=0; j<cost[i].length; j++)
-			{
-				if (rowCover[i]==0 && colCover[j]==0 && (minval > cost[i][j]))
-				{
-					minval = cost[i][j];
-				}
-			}
-		}
-		
-		return minval;
-	}
-
-	public static void set(double [][] arr, int i, int j, double v) {arr[i][j] = v;}
-
-	//***********//
-	//MAIN METHOD//
-	//***********//
-
-	public static void main(String[] args) {
-		System.out.println("Running two tests on three arrays:\n");
-
-		// Square
-		double[][] test1 = {{1,3,4,5},
-							{5,8,4,2},
-							{1,4,3,1},
-							{4,7,0,1}};
-		// Tall
-		double[][] test2 = {{10,19, 8,15},
-							{10,18, 7,17},
-							{13,16, 9,14},
-							{12,19, 8,18},
-							{14,17,10,19}};
-		// Wide
-		double[][] test3 = {{10,19,8,15,14},
-							{10,18,7,17,17},
-							{13,16,9,14,10},
-							{12,19,8,18,19}};
-
-		System.out.println(hgAlgorithm(test1, "min"));
-		System.out.println(hgAlgorithm(test1, "max"));
-//		System.out.println(hgAlgorithm(test2, "min"));
-//		System.out.println(hgAlgorithm(test2, "max"));
-//		System.out.println(hgAlgorithm(test3, "min"));
-//		System.out.println(hgAlgorithm(test3, "max"));
-	}
-
+    /**
+     * Update labels with the specified slack by adding the slack value for
+     * committed workers and by subtracting the slack value for committed jobs. In
+     * addition, update the minimum slack values appropriately.
+     */
+    protected void updateLabeling(double slack) {
+        for (int w = 0; w < dim; w++) {
+            if (committedWorkers[w]) {
+                labelByWorker[w] += slack;
+            }
+        }
+        for (int j = 0; j < dim; j++) {
+            if (parentWorkerByCommittedJob[j] != -1) {
+                labelByJob[j] -= slack;
+            } else {
+                minSlackValueByJob[j] -= slack;
+            }
+        }
+    }
 }
