@@ -79,6 +79,7 @@ public class ProcessAbstraction {
         if( (double)i/(double)MAXL > 1 )
             System.out.println("WARNING - done at " + (double)i/(double)MAXL);
 
+        abstraction.powerup();
         return abstraction;
     }
 

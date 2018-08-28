@@ -22,7 +22,7 @@ public class Subtrace {
     public Subtrace(Subtrace label) {
         this.order = label.order;
         this.label = new int[order];
-        for(i = 0; i < order; i++) this.label[i] = new Integer(label.label[i]);
+        for(i = 0; i < order; i++) this.label[i] = label.label[i];
         this.i = label.i;
         this.full = label.full;
         this.complete = label.complete;
@@ -31,6 +31,16 @@ public class Subtrace {
     public Subtrace(Subtrace label, int next) {
         this(label);
         add(next);
+    }
+
+    public Subtrace(Subtrace prev, Subtrace next) {
+        order = prev.order+1;
+        label = new int[order];
+        for(int j = 0; j < prev.order; j++) this.label[j] = prev.label[(j+prev.i)%prev.order];
+        label[order-1] = next.label[(next.i-1)%next.order];
+        this.i = 0;
+        full = true;
+        complete = true;
     }
 
     public void add(int next) {
@@ -100,7 +110,22 @@ public class Subtrace {
         return ia;
     }
 
+
+    public boolean isComplete() { return complete; }
     public boolean isPrintable() { return (full || complete); }
+
+    public boolean matches(Subtrace st) {
+        int j = i+1;
+        int k = st.i;
+        int size = order -1;
+
+        for( int z=0; z<size; z++ ) {
+            if( label[j%order] != st.label[k%order] ) return false;
+            j++;
+            k++;
+        }
+        return true;
+    }
 
     @Override
     public int hashCode() {

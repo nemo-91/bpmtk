@@ -11,6 +11,7 @@ import java.util.Set;
 public class SubtraceAbstraction extends Abstraction {
 
     private Map<Subtrace, Double> subtraces;
+    private Set<Subtrace> spo;
     private int order;
     public static final int SCALE = 1;
 
@@ -57,7 +58,9 @@ public class SubtraceAbstraction extends Abstraction {
 
         GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
 //        System.out.println("DEBUG - computing hungarian distance... ");
-        return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
+//        return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
+
+        return 1.0 - gld.getSubtracesDistance(spo, m.spo, order+1);
     }
 
     public double minusGRD(Abstraction a) {
@@ -69,7 +72,7 @@ public class SubtraceAbstraction extends Abstraction {
         leftovers = new HashSet<>(this.subtraces.keySet());
 
         for( Subtrace st : m.subtraces.keySet() ) leftovers.remove(st);
-        System.out.println("DEBUG - before : after - " + this.subtraces.size() + " : " + leftovers.size());
+//        System.out.println("DEBUG - before : after - " + this.subtraces.size() + " : " + leftovers.size());
 
         if( leftovers.isEmpty() ) return 1;
 
@@ -78,13 +81,36 @@ public class SubtraceAbstraction extends Abstraction {
         return 1 - gld.getSubtracesDistance(leftovers, m.subtraces.keySet(), order);
     }
 
+    public void powerup() {
+        spo = new HashSet<>();
+
+        for( Subtrace st1 : subtraces.keySet() ) {
+            if( st1.isComplete() ) {
+                spo.add(st1);
+            } else {
+                for (Subtrace st2 : subtraces.keySet())
+                    if( !st2.isComplete() && st1.matches(st2) ) spo.add(new Subtrace(st1, st2));
+            }
+        }
+
+//        print();
+//        System.out.println("DEBUG - normal vs powerup: " + subtraces.size() + " vs " + spo.size());
+//        printSPO();
+
+    }
+
     public double density(){ return 1.0; }
 
     public Set<Subtrace> getSubtraces() { return subtraces.keySet(); }
 
     public void print() {
-        for( Subtrace st : subtraces.keySet() ) System.out.println(st.print());
+        for( Subtrace st : subtraces.keySet() ) System.out.println(st.print() + "-" + st.isComplete());
         System.out.println("INFO - total subtraces: " + subtraces.size());
+    }
+
+    public void printSPO() {
+        for( Subtrace st : spo ) System.out.println(st.print());
+        System.out.println("INFO - total subtraces: " + spo.size());
     }
 
 }
