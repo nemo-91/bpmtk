@@ -125,7 +125,7 @@ public class LogAbstraction {
             abstraction.addSubtrace(subtrace, traceFrequency);
         }
 
-        abstraction.powerup();
+//        abstraction.powerup();
         return abstraction;
     }
 }

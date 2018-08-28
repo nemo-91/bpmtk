@@ -58,9 +58,9 @@ public class SubtraceAbstraction extends Abstraction {
 
         GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
 //        System.out.println("DEBUG - computing hungarian distance... ");
-//        return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
+        return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
 
-        return 1.0 - gld.getSubtracesDistance(spo, m.spo, order+1);
+//        return 1.0 - gld.getSubtracesDistance(spo, m.spo, order+1);
     }
 
     public double minusGRD(Abstraction a) {
