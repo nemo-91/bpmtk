@@ -146,6 +146,8 @@ public class Testing {
         PrintWriter writer = null;
         int order;
 
+        long eTime = System.currentTimeMillis();
+
         try {
             writer = new PrintWriter(".\\" + aType.toString() + "_" + oType.toString() + "o2-" + maxOrder + "_" + System.currentTimeMillis() + ".csv");
             writer.println("log,order,fitness,precision,f-score,etime-fit, etime-prec");
@@ -163,7 +165,7 @@ public class Testing {
                             try {
                                 accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
                                 time = calculator.getExecutionTime();
-                                writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + time[0]+time[3] + "," + time[1]+time[3]);
+                                writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0]+time[3]) + "," + (time[1]+time[3]));
                                 writer.flush();
                                 order++;
                             } catch (Exception e) {
@@ -183,7 +185,57 @@ public class Testing {
             e.printStackTrace();
             return;
         }
+
+        System.out.println("INFO - total testing time: " + (System.currentTimeMillis() - eTime));
+        writer.close();
+    }
+
+    public static void accuracyOnRealModelsSet(Abs aType, Opd oType, String modelsDir, String logsDir, int maxOrder) {
+        MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
+        double[] accuracy;
+        long[] time;
+        String modelPath;
+        String logPath;
+        PrintWriter writer = null;
+        int order;
+
+        long eTime = System.currentTimeMillis();
+
+        try {
+            writer = new PrintWriter(".\\" + aType.toString() + "_" + oType.toString() + "o2-" + maxOrder + "_" + System.currentTimeMillis() + ".csv");
+            writer.println("log,order,fitness,precision,f-score,etime-fit, etime-prec");
+        } catch(Exception e) { System.out.println("ERROR - impossible to print the markovian the results."); }
+
+        try {
+            for(int i = 1; i<13; i++) {
+                modelPath = modelsDir + i + ".pnml";
+                logPath = logsDir + i + ".xes.gz";
+                if( logPath.contains("PRT") && (i==5 || i==8 || i>10) ) continue;
+                order = 2;
+                while (order < maxOrder) {
+                    try {
+                        accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
+                        time = calculator.getExecutionTime();
+                        writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0] + time[3]) + "," + (time[1] + time[3]));
+                        writer.flush();
+                        order++;
+                    } catch (Exception e) {
+                        break;
+                    } catch (Error e) {
+                        break;
+                    }
+                }
+            }
+        } catch ( Exception e ) {
+            System.out.println("ERROR - " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+
+        System.out.println("INFO - total testing time: " + (System.currentTimeMillis() - eTime));
         writer.close();
     }
 
 }
+
+

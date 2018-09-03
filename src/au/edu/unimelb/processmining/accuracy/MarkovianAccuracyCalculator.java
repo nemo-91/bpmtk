@@ -29,11 +29,15 @@ public class MarkovianAccuracyCalculator {
     public enum Abs {MARK, STA}
     public enum Opd {SPL, HUN, GRD}
 
+    private static final boolean includeLTT = false;
+
     private SimpleLog log;
     private Automaton automaton;
     private AutomatonAbstraction automatonAbstraction;
     private Abstraction logAbstraction, processAbstraction;
     private long[] time;
+    private long logLoadingTime;
+
     private int order;
 
 
@@ -47,6 +51,7 @@ public class MarkovianAccuracyCalculator {
             time[3] = System.currentTimeMillis();
             if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) {
                 time[3] = System.currentTimeMillis() - time[3];
+                if( !includeLTT ) time[3] -= logLoadingTime;
                 accuracy[0] = computeFitness(opd);
                 accuracy[1] = computePrecision(opd);
                 accuracy[2] = (2.0 * accuracy[0] * accuracy[1])/(accuracy[0] + accuracy[1]);
@@ -161,11 +166,14 @@ public class MarkovianAccuracyCalculator {
         XLog xlog;
         System.out.println("INFO - input log: " + lopP);
 
+        logLoadingTime = System.currentTimeMillis();
         try{
             if(!lopP.endsWith(".txt")) {
                 xlog = LogImporter.importFromFile(new XFactoryNaiveImpl(), lopP);
                 log = LogParser.getSimpleLog(xlog, new XEventNameClassifier());
             } else log = LogParser.getSimpleLog(lopP);
+
+            logLoadingTime = System.currentTimeMillis() - logLoadingTime;
 
 //            for(String s : log.getReverseMap().keySet()) System.out.println("DEBUG - log activity: " + s);
 
@@ -179,7 +187,6 @@ public class MarkovianAccuracyCalculator {
 //                    logAbstraction.print();
                     break;
             }
-
             return true;
         } catch (Exception e) {
             e.printStackTrace();

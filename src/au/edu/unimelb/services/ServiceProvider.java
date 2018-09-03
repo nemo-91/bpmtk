@@ -21,7 +21,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AORM}
 
     public static void main(String[] args) {
 
@@ -52,6 +52,9 @@ public class ServiceProvider {
                 break;
             case AOM:
                 Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
+                break;
+            case AORM:
+                Testing.accuracyOnRealModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
                 break;
         }
 
