@@ -298,9 +298,9 @@ public class DirectlyFollowGraphPlus {
     }
 
     private void detectParallelisms() {
-        int totalParallelisms = 0;
-        int confirmedParallelisms = 0;
-        int notParallel = 0;
+//        int totalParallelisms = 0;
+//        int confirmedParallelisms = 0;
+//        int notParallel = 0;
         boolean priorityCheck;
 
         DFGEdge e2;
@@ -320,7 +320,7 @@ public class DirectlyFollowGraphPlus {
             tgt = e1.getTargetCode();
 
             if( parallelismsFirst ) priorityCheck = !loopsL2.contains(e1);
-            else priorityCheck = !loopsL1.contains(src) && !loopsL1.contains(tgt);
+            else priorityCheck = !loopsL2.contains(e1) && !loopsL1.contains(src) && !loopsL1.contains(tgt);
 
             if( dfgp.get(tgt).containsKey(src) && priorityCheck && !removableEdges.contains(e1)) {
 //                this means: src || tgt is candidate parallelism
@@ -339,12 +339,12 @@ public class DirectlyFollowGraphPlus {
                         parallelisms.get(tgt).add(src);
                         removableEdges.add(e1);
                         removableEdges.add(e2);
-                        totalParallelisms+=2;
+//                        totalParallelisms+=2;
                     } else {
 //                    otherwise we remove the least frequent edge, e1 or e2
                         if (parallelismScore > 0) removableEdges.add(e2);
                         else removableEdges.add(e1);
-                        notParallel++;
+//                        notParallel++;
                     }
             }
         }
@@ -360,10 +360,11 @@ public class DirectlyFollowGraphPlus {
                 if( parallelisms.containsKey(src) ) parallelisms.get(src).remove(tgt);
                 if( parallelisms.containsKey(tgt) ) parallelisms.get(tgt).remove(src);
                 if( (re = dfgp.get(tgt).get(src)) != null ) this.removeEdge(re, true);
-            } else { confirmedParallelisms++; }
+            }
+//            else { confirmedParallelisms++; }
         }
 
-        System.out.println("DFGP - parallelisms found (total, confirmed): (" + totalParallelisms + " , " + confirmedParallelisms + ")");
+//        System.out.println("DFGP - parallelisms found (total, confirmed): (" + totalParallelisms + " , " + confirmedParallelisms + ")");
     }
 
     private void standardFilter() {
