@@ -3,6 +3,7 @@ package au.edu.unimelb.processmining.accuracy;
 import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.unimelb.processmining.accuracy.abstraction.Abstraction;
+import au.edu.unimelb.processmining.accuracy.abstraction.distances.ConfusionMatrix;
 import au.edu.unimelb.processmining.accuracy.abstraction.intermediate.AutomatonAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.LogAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.markovian.MarkovAbstraction;
@@ -27,7 +28,7 @@ import org.processmining.plugins.tsml.importing.TsmlImportTS;
  */
 public class MarkovianAccuracyCalculator {
     public enum Abs {MARK, STA}
-    public enum Opd {SPL, HUN, GRD}
+    public enum Opd {SPL, HUN, GRD, CFM, UHU}
 
     private static final boolean includeLTT = false;
 
@@ -35,6 +36,8 @@ public class MarkovianAccuracyCalculator {
     private Automaton automaton;
     private AutomatonAbstraction automatonAbstraction;
     private Abstraction logAbstraction, processAbstraction;
+    private ConfusionMatrix matrix;
+
     private long[] time;
     private long logLoadingTime;
 
@@ -133,6 +136,16 @@ public class MarkovianAccuracyCalculator {
             case GRD:
                 precision = processAbstraction.minusGRD(logAbstraction);
                 break;
+            case CFM:
+                if(logAbstraction instanceof SubtraceAbstraction) {
+                    matrix = ((SubtraceAbstraction)logAbstraction).confusionMatrix(processAbstraction);
+                    precision = (double)matrix.getTP()/(double)(matrix.getFP()+matrix.getTP());
+                }
+                break;
+            case UHU:
+                if(processAbstraction instanceof SubtraceAbstraction)
+                    precision = ((SubtraceAbstraction)processAbstraction).minusUHU(logAbstraction);
+                break;
         }
 
         time[1] = System.currentTimeMillis() - time[1];
@@ -154,6 +167,16 @@ public class MarkovianAccuracyCalculator {
                 break;
             case GRD:
                 fitness = logAbstraction.minusGRD(processAbstraction);
+                break;
+            case CFM:
+                if(logAbstraction instanceof SubtraceAbstraction) {
+                    matrix = ((SubtraceAbstraction)logAbstraction).confusionMatrix(processAbstraction);
+                    fitness = (double)matrix.getTP()/(double)(matrix.getFN()+matrix.getTP());
+                }
+                break;
+            case UHU:
+                if(logAbstraction instanceof SubtraceAbstraction)
+                    fitness = ((SubtraceAbstraction)logAbstraction).minusUHU(processAbstraction);
                 break;
         }
 
@@ -184,28 +207,7 @@ public class MarkovianAccuracyCalculator {
                     break;
                 case STA:
                     logAbstraction = LogAbstraction.subtrace(log, order);
-//                    logAbstraction.print();
-                    break;
-            }
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("ERROR - impossible to read the log file.");
-            return false;
-        }
-    }
-
-    private boolean importLog (XLog xlog, Abs type){
-
-        try{
-            log = LogParser.getSimpleLog(xlog, new XEventNameClassifier());
-
-            switch(type) {
-                case MARK:
-                    logAbstraction = LogAbstraction.markovian(log, order);
-                    break;
-                case STA:
-                    logAbstraction = LogAbstraction.subtrace(log, order);
+                    logAbstraction.print();
                     break;
             }
             return true;
@@ -251,7 +253,7 @@ public class MarkovianAccuracyCalculator {
                     break;
                 case STA:
                     processAbstraction = (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
-//                    processAbstraction.print();
+                    processAbstraction.print();
                     break;
             }
 
@@ -263,6 +265,26 @@ public class MarkovianAccuracyCalculator {
         }
     }
 
+    private boolean importLog (XLog xlog, Abs type) {
+
+        try{
+            log = LogParser.getSimpleLog(xlog, new XEventNameClassifier());
+
+            switch(type) {
+                case MARK:
+                    logAbstraction = LogAbstraction.markovian(log, order);
+                    break;
+                case STA:
+                    logAbstraction = LogAbstraction.subtrace(log, order);
+                    break;
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("ERROR - impossible to read the log file.");
+            return false;
+        }
+    }
 
     private boolean importPetrinet(Petrinet petrinet,  Marking initialMarking, Abs type) {
         ImportProcessModel importer = new ImportProcessModel();

@@ -2,10 +2,9 @@ package au.edu.unimelb.processmining.accuracy.abstraction.markovian;
 
 import au.edu.unimelb.processmining.accuracy.abstraction.Abstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.Edge;
-import au.edu.unimelb.processmining.accuracy.abstraction.distances.GraphLevenshteinDistance;
+import au.edu.unimelb.processmining.accuracy.abstraction.distances.GraphEditDistance;
 import au.edu.unimelb.processmining.accuracy.abstraction.Node;
 
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -65,7 +64,7 @@ public class MarkovAbstraction extends Abstraction {
         if( !(a instanceof MarkovAbstraction) ) return -1;
         MarkovAbstraction m = (MarkovAbstraction) a;
 
-        GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
+        GraphEditDistance gld = new GraphEditDistance();
         System.out.println("DEBUG - computing hungarian distance... ");
         return 1.0 - gld.getDistance(this.getEdges(), m.getEdges());
     }
@@ -74,7 +73,7 @@ public class MarkovAbstraction extends Abstraction {
         if( !(a instanceof MarkovAbstraction) ) return -1;
         MarkovAbstraction m = (MarkovAbstraction) a;
 
-        GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
+        GraphEditDistance gld = new GraphEditDistance();
         return 1.0 - gld.getDistanceGreedy(this.getEdges(), m.getEdges());
     }
 

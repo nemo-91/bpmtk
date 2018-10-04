@@ -3,6 +3,7 @@ package au.edu.unimelb.processmining.accuracy.abstraction.distances;
 import au.edu.unimelb.processmining.accuracy.abstraction.Edge;
 import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrace;
 
+import javax.sound.sampled.LineEvent;
 import java.util.*;
 
 import static au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction.SCALE;
@@ -10,9 +11,9 @@ import static au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrac
 /**
  * Created by Adriano on 09/02/18.
  */
-public class GraphLevenshteinDistance {
+public class GraphEditDistance {
 
-    public GraphLevenshteinDistance(){}
+    public GraphEditDistance(){}
 
 
     public double averageDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
@@ -28,7 +29,7 @@ public class GraphLevenshteinDistance {
             minDistances.put(st1, 1.0);
             for( Subtrace st2 : subtraces2 ) {
                 st2ia = st2.printIA();
-                distance = (double)computeLevenshteinArrayDistance(st1ia, st2ia)/(double) order;
+                distance = (double) Levenshtein.arrayDistance(st1ia, st2ia)/(double) order;
                 if( minDistances.get(st1) > distance ) minDistances.put(st1, distance);
             }
         }
@@ -37,6 +38,53 @@ public class GraphLevenshteinDistance {
         for( double d : minDistances.values() ) distance += d;
 
         return distance/size;
+    }
+
+    public double getUnbalancedSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
+        double[][] matrix;
+        double[][] umatrix;
+        double distance = 0;
+        int rows = subtraces1.size();
+        int cols = subtraces2.size();
+        int[] st1ia, st2ia;
+
+        matrix = new double[rows][cols];
+        for(int i=0; i < rows; i++) for(int j=0; j < cols; j++) matrix[i][j] = 1.0;
+
+        int r = 0;
+        for( Subtrace st1 : subtraces1 ) {
+            st1ia = st1.printIA();
+            int c = 0;
+            for( Subtrace st2 : subtraces2 ) {
+                st2ia = st2.printIA();
+                matrix[r][c] = (double)Levenshtein.unbalancedArrayDistance(st1ia, st2ia)/(double)st1ia.length;
+                c++;
+            }
+            r++;
+        }
+
+        System.out.print("DEBUG - starting HUN... ");
+
+        while( rows > 0 ) {
+            HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
+            int[] matches = hu2.execute();
+
+            int x = 0;
+            if( rows - cols > 0) umatrix = new double[rows - cols][cols];
+            else umatrix = null;
+
+            for (int i = 0; i < rows; i++)
+                if (matches[i] == -1) {
+                    umatrix[x] = matrix[i];
+                    x++;
+//                    distance += 1;
+                } else distance += matrix[i][matches[i]];
+
+            matrix = umatrix;
+            rows = rows - cols;
+        }
+
+        return distance/subtraces1.size();
     }
 
     public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
@@ -55,7 +103,7 @@ public class GraphLevenshteinDistance {
             int c = 0;
             for( Subtrace st2 : subtraces2 ) {
                 st2ia = st2.printIA();
-                matrix[r][c] = (double)computeLevenshteinArrayDistance(st1ia, st2ia)/(double) order;
+                matrix[r][c] = (double)Levenshtein.arrayDistance(st1ia, st2ia)/(double) order;
                 c++;
             }
             r++;
@@ -72,7 +120,6 @@ public class GraphLevenshteinDistance {
 
         return (distance/(subtraces1.size()*SCALE))*SCALE;
     }
-
 
 //    this should be edges1 - edges2, leftover of edges2 are okay.
     public double getDistance(Set<Edge> edges1, Set<Edge> edges2) {
@@ -99,8 +146,8 @@ public class GraphLevenshteinDistance {
             for( Edge e2 : edges2 ) {
                 src2 = e2.getSRC();
                 tgt2 = e2.getTGT();
-                ds = (double)computeLevenshteinDistance(src1, src2)/(double)Math.max(ls1, src2.length());
-                dt = (double)computeLevenshteinDistance(tgt1, tgt2)/(double)Math.max(lt1, tgt2.length());
+                ds = (double)Levenshtein.stringDistance(src1, src2)/(double)Math.max(ls1, src2.length());
+                dt = (double)Levenshtein.stringDistance(tgt1, tgt2)/(double)Math.max(lt1, tgt2.length());
                 d = (dt + ds)/2.0;
                 matrix[r][c] = d;
                 c++;
@@ -148,8 +195,8 @@ public class GraphLevenshteinDistance {
             for (int j = 0; j < s2; j++) {
                 src2 = edges2.get(j).getSRC();
                 tgt2 = edges2.get(j).getTGT();
-                ds = computeLevenshteinDistance(src1, src2)/Math.max(ls1, src2.length());
-                dt = computeLevenshteinDistance(tgt1, tgt2)/Math.max(lt1, tgt2.length());
+                ds = Levenshtein.stringDistance(src1, src2)/Math.max(ls1, src2.length());
+                dt = Levenshtein.stringDistance(tgt1, tgt2)/Math.max(lt1, tgt2.length());
                 d = (dt + ds)/2.0;
                 if( !matrix.containsKey(d) ) matrix.put(d, new ArrayList<>());
                 matrix.get(d).add(new Pair(i,j));
@@ -182,41 +229,6 @@ public class GraphLevenshteinDistance {
 //        System.out.println("DEBUG - graph distance: " + distance);
         return distance;
     }
-
-    private int computeLevenshteinDistance(CharSequence lhs, CharSequence rhs) {
-        int[][] distance = new int[lhs.length() + 1][rhs.length() + 1];
-
-        for (int i = 0; i <= lhs.length(); i++)
-            distance[i][0] = i;
-        for (int j = 1; j <= rhs.length(); j++)
-            distance[0][j] = j;
-
-        for (int i = 1; i <= lhs.length(); i++)
-            for (int j = 1; j <= rhs.length(); j++)
-                distance[i][j] = Math.min(
-                        Math.min( distance[i - 1][j] + 1, distance[i][j - 1] + 1 ),
-                        distance[i - 1][j - 1] + ((lhs.charAt(i - 1) == rhs.charAt(j - 1)) ? 0 : 1));
-
-        return distance[lhs.length()][rhs.length()];
-    }
-
-    private int computeLevenshteinArrayDistance(int[] lhs, int[] rhs) {
-        int[][] distance = new int[lhs.length + 1][rhs.length + 1];
-
-        for (int i = 0; i <= lhs.length; i++)
-            distance[i][0] = i;
-        for (int j = 1; j <= rhs.length; j++)
-            distance[0][j] = j;
-
-        for (int i = 1; i <= lhs.length; i++)
-            for (int j = 1; j <= rhs.length; j++)
-                distance[i][j] = Math.min(
-                        Math.min( distance[i - 1][j] + 1, distance[i][j - 1] + 1 ),
-                        distance[i - 1][j - 1] + ((lhs[i - 1] == rhs[j - 1]) ? 0 : 1));
-
-        return distance[lhs.length][rhs.length];
-    }
-
 
     private class Pair {
         int r, c;

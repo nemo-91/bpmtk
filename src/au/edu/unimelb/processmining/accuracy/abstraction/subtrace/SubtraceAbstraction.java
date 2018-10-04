@@ -1,27 +1,27 @@
 package au.edu.unimelb.processmining.accuracy.abstraction.subtrace;
 
 import au.edu.unimelb.processmining.accuracy.abstraction.Abstraction;
-import au.edu.unimelb.processmining.accuracy.abstraction.distances.GraphLevenshteinDistance;
+import au.edu.unimelb.processmining.accuracy.abstraction.distances.ConfusionMatrix;
+import au.edu.unimelb.processmining.accuracy.abstraction.distances.GraphEditDistance;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class SubtraceAbstraction extends Abstraction {
 
     private Map<Subtrace, Double> subtraces;
-    private Set<Subtrace> spo;
     private int order;
     public static final int SCALE = 1;
+
+    private ConfusionMatrix matrix;
 
     public SubtraceAbstraction(int order) {
         this.order = order;
         subtraces = new HashMap<>();
+        matrix = null;
     }
 
     public boolean addSubtrace(Subtrace subtrace) {
-        return this.addSubtrace(subtrace, 0);
+        return this.addSubtrace(subtrace, 1);
     }
 
     public boolean addSubtrace(Subtrace subtrace, int frequency) {
@@ -56,7 +56,7 @@ public class SubtraceAbstraction extends Abstraction {
         if( !(a instanceof SubtraceAbstraction) ) return -1;
         SubtraceAbstraction m = (SubtraceAbstraction) a;
 
-        GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
+        GraphEditDistance gld = new GraphEditDistance();
 //        System.out.println("DEBUG - computing hungarian distance... ");
         return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
 
@@ -72,31 +72,68 @@ public class SubtraceAbstraction extends Abstraction {
         leftovers = new HashSet<>(this.subtraces.keySet());
 
         for( Subtrace st : m.subtraces.keySet() ) leftovers.remove(st);
-//        System.out.println("DEBUG - before : after - " + this.subtraces.size() + " : " + leftovers.size());
-
         if( leftovers.isEmpty() ) return 1;
 
-
-        GraphLevenshteinDistance gld = new GraphLevenshteinDistance();
+        GraphEditDistance gld = new GraphEditDistance();
         return 1 - gld.getSubtracesDistance(leftovers, m.subtraces.keySet(), order);
     }
 
-    public void powerup() {
-        spo = new HashSet<>();
+    public double minusUHU(Abstraction a) {
+        if( !(a instanceof SubtraceAbstraction) ) return -1;
+        SubtraceAbstraction m = (SubtraceAbstraction) a;
 
-        for( Subtrace st1 : subtraces.keySet() ) {
-            if( st1.isComplete() ) {
-                spo.add(st1);
-            } else {
-                for (Subtrace st2 : subtraces.keySet())
-                    if( !st2.isComplete() && st1.matches(st2) ) spo.add(new Subtrace(st1, st2));
+        GraphEditDistance gld = new GraphEditDistance();
+//        System.out.println("DEBUG - computing hungarian distance... ");
+        return 1.0 - gld.getUnbalancedSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
+    }
+
+    public ConfusionMatrix confusionMatrix(Abstraction a) {
+        if( !(a instanceof SubtraceAbstraction) ) return null;
+        SubtraceAbstraction m = (SubtraceAbstraction) a;
+
+        if(matrix != null) return matrix;
+
+        matrix = new ConfusionMatrix(this, m);
+        matrix.compute();
+        return matrix;
+    }
+
+    public Set<Subtrace> removeAll(SubtraceAbstraction sa) {
+        Set<Subtrace> ast;
+        HashMap<Double, Set<Subtrace>> frequencies = new HashMap<>();
+        ArrayList<Double> sortedFreqs;
+        Subtrace mostFrequent = null;
+        double f;
+
+        ast = new HashSet<>(subtraces.keySet());
+        ast.removeAll(sa.subtraces.keySet());
+
+        f = 0.0;
+        for(Subtrace st : ast)
+            if( f < subtraces.get(st) ) {
+                f = subtraces.get(st);
+                mostFrequent = st;
             }
-        }
 
-//        print();
-//        System.out.println("DEBUG - normal vs powerup: " + subtraces.size() + " vs " + spo.size());
-//        printSPO();
+        ast.clear();
+        ast.add(mostFrequent);
+        subtraces.put(mostFrequent, 0.0);
 
+//        for(Subtrace st : ast) {
+//            f = subtraces.get(st);
+//            if( !frequencies.containsKey(f) ) frequencies.put(f, new HashSet<>());
+//            frequencies.get(f).add(st);
+//        }
+
+//        ast.clear();
+//        sortedFreqs = new ArrayList<>(frequencies.keySet());
+//        Collections.sort(sortedFreqs);
+//        for( double d : sortedFreqs ) {
+//            ast.addAll(frequencies.get(d));
+//            if(ast.size() > 1) break;
+//        }
+
+        return ast;
     }
 
     public double density(){ return 1.0; }
@@ -106,11 +143,6 @@ public class SubtraceAbstraction extends Abstraction {
     public void print() {
         for( Subtrace st : subtraces.keySet() ) System.out.println(st.print() + "-" + st.isComplete());
         System.out.println("INFO - total subtraces: " + subtraces.size());
-    }
-
-    public void printSPO() {
-        for( Subtrace st : spo ) System.out.println(st.print());
-        System.out.println("INFO - total subtraces: " + spo.size());
     }
 
 }

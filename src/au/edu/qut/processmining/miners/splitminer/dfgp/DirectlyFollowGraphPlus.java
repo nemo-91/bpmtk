@@ -23,6 +23,7 @@ package au.edu.qut.processmining.miners.splitminer.dfgp;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 
+import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrace;
 import org.apache.commons.lang3.StringUtils;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagramImpl;
@@ -73,6 +74,8 @@ public class DirectlyFollowGraphPlus {
 //        this.percentileOnBest = percentileOnBest;
         this.parallelismsFirst = parallelismsFirst;
     }
+
+    public SimpleLog getSimpleLog() { return log; }
 
     public BPMNDiagram getDFG() {
         buildDirectlyFollowsGraph();
@@ -621,6 +624,63 @@ public class DirectlyFollowGraphPlus {
         edges.remove(e);
         return true;
 //        System.out.println("DEBUG - removed edge: " + src + " -> " + tgt);
+    }
+
+    public int enhance( Set<String> subtraces ) {
+        int enhancement = 0;
+        StringTokenizer trace;
+
+        DFGNode node, prevNode;
+        DFGEdge edge;
+
+        int event, prevEvent;
+
+        for( String t : subtraces ) {
+            trace = new StringTokenizer(t, ":");
+
+            prevEvent = Integer.valueOf(trace.nextToken());
+            prevNode = nodes.get(prevEvent);
+
+            while( trace.hasMoreTokens() ) {
+
+                event = Integer.valueOf(trace.nextToken());
+                node = nodes.get(event);
+
+                if( !dfgp.containsKey(prevEvent) || !dfgp.get(prevEvent).containsKey(event) ) {
+                    edge = new DFGEdge(prevNode, node);
+                    this.addEdge(edge);
+                    enhancement++;
+                }
+
+                prevEvent = event;
+                prevNode = node;
+            }
+        }
+
+        detectParallelisms();
+        return enhancement;
+    }
+
+    public int reduce( Set<String> subtraces ) {
+        int reduction = 0;
+        StringTokenizer trace;
+        int event, prevEvent;
+
+        for( String t : subtraces ) {
+            trace = new StringTokenizer(t, ":");
+            prevEvent = Integer.valueOf(trace.nextToken());
+
+            while( trace.hasMoreTokens() ) {
+                event = Integer.valueOf(trace.nextToken());
+                if( dfgp.containsKey(prevEvent) && dfgp.get(prevEvent).containsKey(event) ) {
+                    if(this.removeEdge(dfgp.get(prevEvent).get(event), true)) reduction++;
+                }
+                prevEvent = event;
+            }
+        }
+
+        detectParallelisms();
+        return reduction;
     }
 
 

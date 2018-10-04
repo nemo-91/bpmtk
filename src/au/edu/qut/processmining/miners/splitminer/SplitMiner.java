@@ -67,7 +67,11 @@ public class SplitMiner {
     private Set<Gateway> rigidsEntries;
 
 
-    public SplitMiner() {}
+    public SplitMiner() {
+        this.replaceIORs = true;
+        this.removeLoopActivities = true;
+        this.structuringTime = SplitMinerUIResult.StructuringTime.NONE;
+    }
 
     public DirectlyFollowGraphPlus getDFGP() { return dfgp; }
 
@@ -100,6 +104,20 @@ public class SplitMiner {
     private void generateDFGP(double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst) {
         dfgp = new DirectlyFollowGraphPlus(log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
         dfgp.buildDFGP();
+    }
+
+    public BPMNDiagram discoverFromDFGP(DirectlyFollowGraphPlus idfgp) {
+        this.log = idfgp.getSimpleLog();
+        dfgp = idfgp;
+        try {
+            transformDFGPintoBPMN();
+            if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
+        } catch(Exception e) {
+            System.out.println("ERROR - something went wrong translating DFG to BPMN");
+            e.printStackTrace();
+            return dfgp.convertIntoBPMNDiagram();
+        }
+        return bpmnDiagram;
     }
 
     private void transformDFGPintoBPMN() {

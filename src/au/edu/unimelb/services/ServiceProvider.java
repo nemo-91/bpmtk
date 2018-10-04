@@ -1,6 +1,7 @@
 package au.edu.unimelb.services;
 
 import au.edu.qut.processmining.log.LogParser;
+import au.edu.qut.processmining.miners.omega.OmegaMiner;
 import au.edu.qut.processmining.miners.splitminer.SplitMiner;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
@@ -21,7 +22,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AORM}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AORM, OM}
 
     public static void main(String[] args) {
 
@@ -56,8 +57,15 @@ public class ServiceProvider {
             case AORM:
                 Testing.accuracyOnRealModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
                 break;
+            case OM:
+                testProvider.omegaMiner(fargs[0]);
+                break;
         }
 
+    }
+
+    public void omegaMiner(String logPath) {
+        new OmegaMiner().mineAndExport(logPath);
     }
 
     public void MarkovianAccuracyService(String[] args) {
