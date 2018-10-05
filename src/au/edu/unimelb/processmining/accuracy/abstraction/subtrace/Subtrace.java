@@ -104,7 +104,7 @@ public class Subtrace {
     public int getOrder() { return order; }
 
     public boolean isComplete() { return complete; }
-    public boolean isPrintable() { return full;}// || (complete && i != 0)); }
+    public boolean isPrintable() { return full || complete; }// && i != 0)); }
 
     @Override
     public int hashCode() {
