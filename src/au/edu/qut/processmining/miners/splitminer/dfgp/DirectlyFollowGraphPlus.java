@@ -23,7 +23,6 @@ package au.edu.qut.processmining.miners.splitminer.dfgp;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 
-import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrace;
 import org.apache.commons.lang3.StringUtils;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagramImpl;

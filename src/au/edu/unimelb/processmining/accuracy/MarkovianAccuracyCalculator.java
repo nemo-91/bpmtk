@@ -50,7 +50,7 @@ public class MarkovianAccuracyCalculator {
 
         try {
             this.order = order;
-            System.out.println("INFO - abs : opt : order > " + type + " : " + opd + " : " + order);
+//            System.out.println("INFO - abs : opt : order > " + type + " : " + opd + " : " + order);
             time[3] = System.currentTimeMillis();
             if( importLogFromFile(logP, type) && importProcessFromFile(processP, type) ) {
                 time[3] = System.currentTimeMillis() - time[3];
@@ -207,7 +207,7 @@ public class MarkovianAccuracyCalculator {
                     break;
                 case STA:
                     logAbstraction = LogAbstraction.subtrace(log, order);
-                    logAbstraction.print();
+//                    logAbstraction.print();
                     break;
             }
             return true;
@@ -253,7 +253,7 @@ public class MarkovianAccuracyCalculator {
                     break;
                 case STA:
                     processAbstraction = (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
-                    processAbstraction.print();
+//                    processAbstraction.print();
                     break;
             }
 

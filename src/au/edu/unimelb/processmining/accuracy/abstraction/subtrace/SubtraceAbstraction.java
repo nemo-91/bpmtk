@@ -10,7 +10,7 @@ public class SubtraceAbstraction extends Abstraction {
 
     private Map<Subtrace, Double> subtraces;
     private int order;
-    public static final int SCALE = 1;
+    private double globalGramsCount;
 
     private ConfusionMatrix matrix;
 
@@ -18,15 +18,20 @@ public class SubtraceAbstraction extends Abstraction {
         this.order = order;
         subtraces = new HashMap<>();
         matrix = null;
+        globalGramsCount = 0.0;
     }
 
     public boolean addSubtrace(Subtrace subtrace) {
-        return this.addSubtrace(subtrace, 1);
+        if( !subtrace.isPrintable() ) return false;
+        boolean recorded = subtraces.containsKey(subtrace);
+        if( !recorded ) subtraces.put(subtrace, 1.0);
+        return recorded;
     }
 
     public boolean addSubtrace(Subtrace subtrace, int frequency) {
         if( !subtrace.isPrintable() ) return false;
         boolean recorded = subtraces.containsKey(subtrace);
+        globalGramsCount+= (double)frequency;
 
         if( recorded ) {
             subtraces.put(subtrace, subtraces.get(subtrace)+frequency);
@@ -48,7 +53,7 @@ public class SubtraceAbstraction extends Abstraction {
         ast = new HashSet<>(subtraces.keySet());
         ast.removeAll(m.subtraces.keySet());
 //        System.out.println("DEBUG - " + ast.size() + " " + subtraces.size() + " " + m.subtraces.size());
-        difference = 1.0 - (((double)ast.size()/(subtraces.size()*SCALE))*SCALE);
+        difference = 1.0 - (double)ast.size()/subtraces.size();
         return difference;
     }
 
@@ -58,9 +63,14 @@ public class SubtraceAbstraction extends Abstraction {
 
         GraphEditDistance gld = new GraphEditDistance();
 //        System.out.println("DEBUG - computing hungarian distance... ");
-        return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), order);
 
-//        return 1.0 - gld.getSubtracesDistance(spo, m.spo, order+1);
+        if( globalGramsCount == 0.0 )
+            return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), (double)order);
+
+        for( Subtrace st : subtraces.keySet() ) st.setFrequency(subtraces.get(st));
+        return 1.0 - gld.getFreqWeightedSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), (double)order, globalGramsCount);
+//        return 1.0 - gld.getSubtracesDistance(this.subtraces.keySet(), m.subtraces.keySet(), (double)order);
+
     }
 
     public double minusGRD(Abstraction a) {
@@ -75,7 +85,7 @@ public class SubtraceAbstraction extends Abstraction {
         if( leftovers.isEmpty() ) return 1;
 
         GraphEditDistance gld = new GraphEditDistance();
-        return 1 - gld.getSubtracesDistance(leftovers, m.subtraces.keySet(), order);
+        return 1.0 - gld.getSubtracesDistance(leftovers, m.subtraces.keySet(), (double)order);
     }
 
     public double minusUHU(Abstraction a) {

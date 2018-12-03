@@ -3,10 +3,8 @@ package au.edu.unimelb.processmining.accuracy.abstraction.distances;
 import au.edu.unimelb.processmining.accuracy.abstraction.Edge;
 import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.Subtrace;
 
-import javax.sound.sampled.LineEvent;
 import java.util.*;
 
-import static au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction.SCALE;
 
 /**
  * Created by Adriano on 09/02/18.
@@ -40,7 +38,7 @@ public class GraphEditDistance {
         return distance/size;
     }
 
-    public double getUnbalancedSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
+    public double getUnbalancedSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, double order) {
         double[][] matrix;
         double[][] umatrix;
         double distance = 0;
@@ -49,7 +47,7 @@ public class GraphEditDistance {
         int[] st1ia, st2ia;
 
         matrix = new double[rows][cols];
-        for(int i=0; i < rows; i++) for(int j=0; j < cols; j++) matrix[i][j] = 1.0;
+//        for(int i=0; i < rows; i++) for(int j=0; j < cols; j++) matrix[i][j] = 1.0;
 
         int r = 0;
         for( Subtrace st1 : subtraces1 ) {
@@ -57,13 +55,13 @@ public class GraphEditDistance {
             int c = 0;
             for( Subtrace st2 : subtraces2 ) {
                 st2ia = st2.printIA();
-                matrix[r][c] = (double)Levenshtein.unbalancedArrayDistance(st1ia, st2ia)/(double)st1ia.length;
+                matrix[r][c] = (double)Levenshtein.unbalancedArrayDistance(st1ia, st2ia)/order;
                 c++;
             }
             r++;
         }
 
-        System.out.print("DEBUG - starting HUN... ");
+        System.out.print("DEBUG - starting UHU... ");
 
         while( rows > 0 ) {
             HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
@@ -87,7 +85,7 @@ public class GraphEditDistance {
         return distance/subtraces1.size();
     }
 
-    public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
+    public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, double order) {
         double[][] matrix;
         double distance = 0;
         int rows = subtraces1.size();
@@ -103,7 +101,7 @@ public class GraphEditDistance {
             int c = 0;
             for( Subtrace st2 : subtraces2 ) {
                 st2ia = st2.printIA();
-                matrix[r][c] = (double)Levenshtein.arrayDistance(st1ia, st2ia)/(double) order;
+                matrix[r][c] = (double)Levenshtein.arrayDistance(st1ia, st2ia)/order;
                 c++;
             }
             r++;
@@ -118,7 +116,41 @@ public class GraphEditDistance {
             if(matches[i] == -1)  distance += 1;
             else distance += matrix[i][matches[i]];
 
-        return (distance/(subtraces1.size()*SCALE))*SCALE;
+        return distance/subtraces1.size();
+    }
+
+    public double getFreqWeightedSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, double order, double globalGramsCount) {
+        double[][] matrix;
+        double distance = 0;
+        int rows = subtraces1.size();
+        int cols = subtraces2.size();
+        int[] st1ia, st2ia;
+
+        matrix = new double[rows][cols];
+//        for(int i=0; i < rows; i++) for(int j=0; j < cols; j++) matrix[i][j] = 1.0;
+
+        int r = 0;
+        for( Subtrace st1 : subtraces1 ) {
+            st1ia = st1.printIA();
+            int c = 0;
+            for( Subtrace st2 : subtraces2 ) {
+                st2ia = st2.printIA();
+                matrix[r][c] = ((double)Levenshtein.arrayDistance(st1ia, st2ia)/order)*st1.getFrequency();
+                c++;
+            }
+            r++;
+        }
+
+        System.out.print("DEBUG - starting HUN... ");
+
+        HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
+        int[] matches = hu2.execute();
+
+        for(int i =0; i < rows; i++)
+            if(matches[i] == -1)  distance += 1;
+            else distance += matrix[i][matches[i]];
+
+        return distance/globalGramsCount;
     }
 
 //    this should be edges1 - edges2, leftover of edges2 are okay.

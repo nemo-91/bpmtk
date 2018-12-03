@@ -22,15 +22,36 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AORM, OM}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM}
 
     public static void main(String[] args) {
+        ServiceProvider testProvider = new ServiceProvider();
+
+
+//        if( args.length != 5) printHelp();
+//        args[4] = Integer.toString(Integer.valueOf(args[4]) + 1);
+//
+//        switch(TEST_CODE.valueOf(args[0])) {
+//            case MAP:
+//                args[0] = "STA";
+//                testProvider.MarkovianPrecisionService(args);
+//                break;
+//            case MAF:
+//                args[0] = "STA";
+//                testProvider.MarkovianFitnessService(args);
+//                break;
+//            case MAC:
+//                args[0] = "STA";
+//                testProvider.MarkovianAccuracyService(args);
+//                break;
+//            default:
+//                printHelp();
+//                return;
+//        }
 
         TEST_CODE code = TEST_CODE.valueOf(args[0]);
         String[] fargs = new String[args.length-1];
         for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
-
-        ServiceProvider testProvider = new ServiceProvider();
 
         switch(code) {
             case KEN:
@@ -53,6 +74,9 @@ public class ServiceProvider {
                 break;
             case AOM:
                 Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
+                break;
+            case AOL:
+                Testing.accuracyOnLogsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
                 break;
             case AORM:
                 Testing.accuracyOnRealModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
@@ -145,6 +169,15 @@ public class ServiceProvider {
             System.out.println("ERROR - impossible to import the log");
             e.printStackTrace();
         }
+    }
+
+    static private void printHelp() {
+        System.out.println("ERROR: wrong usage.");
+        System.out.println("RUN> java -cp markovian-accuracy.jar;lib\\* au.edu.unimelb.services.ServiceProvider C F 'logpath\\log.[xes|xes.gz|mxml]' 'modelpath\\model.[bpmn|pnml]' K ");
+        System.out.println("PARAM: C = operative code, either one of the following: MAC | MAP | MAF");
+        System.out.println("PARAM: F = cost function, either one of the following: SPL | HUN");
+        System.out.println("PARAM: K = Markovian abstraction order, an integer greater/equal than 2, best is 3 to 5");
+        System.out.println("EXAMPLE: java -cp markovian-accuracy.jar;lib\\* au.edu.unimelb.services.ServiceProvider MAC SPL .\\logs\\original.mxml .\\model1.pnml 4");
     }
 
 }

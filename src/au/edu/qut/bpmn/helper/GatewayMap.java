@@ -20,7 +20,6 @@
 
 package au.edu.qut.bpmn.helper;
 
-import au.edu.qut.processmining.miners.splitminer.dfgp.DFGEdge;
 import ee.ut.comptech.*;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;

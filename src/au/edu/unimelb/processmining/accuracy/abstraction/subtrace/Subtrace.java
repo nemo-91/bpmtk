@@ -8,6 +8,8 @@ public class Subtrace {
     private boolean complete;
     private String print;
 
+    private double frequency;
+
     public final static int INIT = 0;
     private final static int START = 0;
 
@@ -100,6 +102,9 @@ public class Subtrace {
 
         return ia;
     }
+
+    public double getFrequency(){ return frequency; }
+    public void setFrequency(double f) { frequency = f; }
 
     public int getOrder() { return order; }
 

@@ -190,6 +190,58 @@ public class Testing {
         writer.close();
     }
 
+    public static void accuracyOnLogsSet(Abs aType, Opd oType, String modelPath, String logsDir, int maxOrder) {
+        MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
+        double[] accuracy;
+        long[] time;
+        PrintWriter writer = null;
+        String logPath;
+        int order;
+
+        long eTime = System.currentTimeMillis();
+
+        try {
+            writer = new PrintWriter(".\\" + aType.toString() + "_" + oType.toString() + "o2-" + (maxOrder-1) + "_" + System.currentTimeMillis() + ".csv");
+            writer.println("log,order,fitness,precision,f-score,etime-fit, etime-prec");
+        } catch(Exception e) { System.out.println("ERROR - impossible to print the markovian the results."); }
+
+        try {
+            File dir = new File(logsDir);
+            File[] directoryListing = dir.listFiles();
+            if( directoryListing != null ) {
+                for( File log : directoryListing ) {
+                    logPath = log.getCanonicalPath();
+                    if( logPath.endsWith(".xes.gz") ) {
+                        order = 2;
+                        while( order < maxOrder ) {
+                            try {
+                                accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
+                                time = calculator.getExecutionTime();
+                                writer.println(logPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0]+time[3]) + "," + (time[1]+time[3]));
+                                writer.flush();
+                                order++;
+                            } catch (Exception e) {
+                                break;
+                            } catch (Error e) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                System.out.println("ERROR - input path not a directory.");
+                return;
+            }
+        } catch ( Exception e ) {
+            System.out.println("ERROR - " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+
+        System.out.println("INFO - total testing time: " + (System.currentTimeMillis() - eTime));
+        writer.close();
+    }
+
     public static void accuracyOnRealModelsSet(Abs aType, Opd oType, String modelsDir, String logsDir, int maxOrder) {
         MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
         double[] accuracy;
