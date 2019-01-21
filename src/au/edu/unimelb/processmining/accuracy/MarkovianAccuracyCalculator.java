@@ -28,7 +28,7 @@ import org.processmining.plugins.tsml.importing.TsmlImportTS;
  */
 public class MarkovianAccuracyCalculator {
     public enum Abs {MARK, STA}
-    public enum Opd {SPL, HUN, GRD, CFM, UHU}
+    public enum Opd {SPL, HUN, GRD, CFM, UHU, STD}
 
     private static final boolean includeLTT = false;
 
@@ -130,6 +130,7 @@ public class MarkovianAccuracyCalculator {
             case SPL:
                 precision = processAbstraction.minus(logAbstraction);
                 break;
+            case STD:
             case HUN:
                 precision = processAbstraction.minusHUN(logAbstraction);
                 break;
@@ -159,6 +160,7 @@ public class MarkovianAccuracyCalculator {
         time[0] = System.currentTimeMillis();
 
         switch(opd) {
+            case STD:
             case SPL:
                 fitness = logAbstraction.minus(processAbstraction);
                 break;
@@ -259,7 +261,7 @@ public class MarkovianAccuracyCalculator {
 
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
+//            e.printStackTrace();
             System.out.println("ERROR - impossible to read the process file.");
             return false;
         }

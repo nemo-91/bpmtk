@@ -31,7 +31,8 @@ import java.util.Set;
 
 public class OmegaMiner {
 
-    private static int ORDER = 5;
+    private static int ORDER = 6;
+    private static double DELTA = 0.05;
 
     private SplitMiner yam;
     private ImportProcessModel importer;
@@ -80,42 +81,43 @@ public class OmegaMiner {
         dfgp.buildDFGP();
         bpmn = yam.discoverFromDFGP(dfgp);
         staProcess = abstractProcessBehaviour(bpmn);
-        fitness = staLog.minusHUN(staProcess);
-        precision = staProcess.minusHUN(staLog);
 
-        eTime = System.currentTimeMillis();
-        System.out.println("INFO - fit & prec : " + fitness + " & " + precision);
-        while (precision > fitness && (System.currentTimeMillis() - eTime) < 300000) {
+        try {
+            fitness = staLog.minus(staProcess);
+            precision = staProcess.minus(staLog);
+
+            eTime = System.currentTimeMillis();
+            System.out.println("INFO - fit & prec : " + fitness + " & " + precision);
+            while (System.currentTimeMillis() - eTime < 300000) {
+                if (precision > fitness + DELTA) {
 //            unfitting subtraces detection and enhancement of the dfgp
-                subtraces = staLog.removeAll(staProcess);
-                for (Subtrace st : subtraces) subtracesAsStrings.add(st.print());
-                enhancement = dfgp.enhance(subtracesAsStrings);
-                System.out.println("INFO - enhancement: +" + enhancement);
-                subtracesAsStrings.clear();
-//            computing fitness after enhancement
-                bpmn = yam.discoverFromDFGP(dfgp);
-                staProcess = abstractProcessBehaviour(bpmn);
-                fitness = staLog.minusHUN(staProcess);
-                precision = staProcess.minusHUN(staLog);
-                System.out.println("INFO - fit & prec : " + fitness + " & " + precision);
+                    subtracesAsStrings = staLog.getDifferences(staProcess, 1);
+                    enhancement = dfgp.enhance(subtracesAsStrings);
+                    if( enhancement == 0 ) break;
+                    System.out.println("INFO - enhancement: +" + enhancement);
+//            computing accuracy after enhancement
+                    bpmn = yam.discoverFromDFGP(dfgp);
+                    staProcess = abstractProcessBehaviour(bpmn);
+                    fitness = staLog.minus(staProcess);
+                    precision = staProcess.minus(staLog);
+                    System.out.println("INFO - fit & prec : " + fitness + " & " + precision);
+                } else if (fitness > precision + DELTA) {
+//            unprecise subtraces detection and reduction of the dfgp
+                    subtracesAsStrings = staProcess.getDifferences(staLog, 1);
+                    reduction = dfgp.reduce(subtracesAsStrings);
+                    if( reduction == 0 ) break;
+                    System.out.println("INFO - reduction: -" + reduction);
+//            computing accuracy after enhancement
+                    bpmn = yam.discoverFromDFGP(dfgp);
+                    staProcess = abstractProcessBehaviour(bpmn);
+                    fitness = staLog.minus(staProcess);
+                    precision = staProcess.minus(staLog);
+                    System.out.println("INFO - fit & prec : " + fitness + " & " + precision);
+                } else return bpmn;
+            }
+        } catch (Exception e){
+            return bpmn;
         }
-//        } else {
-//            while (fitness > precision && (System.currentTimeMillis() - eTime) < 300000) {
-////            unprecise subtraces detection and reduction of the dfgp
-//                subtraces = staProcess.removeAll(staLog);
-//                for (Subtrace st : subtraces) subtracesAsStrings.add(st.print());
-//                reduction = dfgp.reduce(subtracesAsStrings);
-//                System.out.println("INFO - reduction: -" + reduction);
-//                subtracesAsStrings.clear();
-////            computing fitness after enhancement
-//                bpmn = yam.discoverFromDFGP(dfgp);
-//                staProcess = abstractProcessBehaviour(bpmn);
-//                fitness = staLog.minusHUN(staProcess);
-//                precision = staProcess.minusHUN(staLog);
-//                System.out.println("INFO - fit & prec : " + fitness + " & " + precision);
-//            }
-//        }
-
         return bpmn;
     }
 

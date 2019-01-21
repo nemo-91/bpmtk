@@ -1,6 +1,6 @@
 package au.edu.unimelb.processmining.accuracy.abstraction.subtrace;
 
-public class Subtrace {
+public class Subtrace implements Comparable {
     private int[] label;
     private int order;
     private int i;
@@ -8,7 +8,7 @@ public class Subtrace {
     private boolean complete;
     private String print;
 
-    private double frequency;
+    protected double frequency;
 
     public final static int INIT = 0;
     private final static int START = 0;
@@ -21,6 +21,7 @@ public class Subtrace {
         full = false;
         complete = false;
         print = null;
+        frequency = 0;
     }
 
     public Subtrace(Subtrace label) {
@@ -31,6 +32,7 @@ public class Subtrace {
         this.full = label.full;
         this.complete = label.complete;
         this.print = label.print;
+        this.frequency = label.frequency;
     }
 
     public Subtrace(Subtrace label, int next) {
@@ -125,4 +127,9 @@ public class Subtrace {
     }
 
 
+    @Override
+    public int compareTo(Object o) {
+        if( o instanceof Subtrace ) return (int)frequency - (int)((Subtrace) o).frequency;
+        return -1;
+    }
 }

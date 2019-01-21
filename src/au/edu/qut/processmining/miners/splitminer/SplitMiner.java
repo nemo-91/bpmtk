@@ -31,6 +31,7 @@ import au.edu.qut.processmining.miners.splitminer.oracle.OracleItem;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 
+import au.edu.unimelb.processmining.optimization.SimpleDirectlyFollowGraph;
 import de.hpi.bpt.graph.DirectedEdge;
 import de.hpi.bpt.graph.DirectedGraph;
 import de.hpi.bpt.graph.abs.IDirectedGraph;
@@ -120,6 +121,14 @@ public class SplitMiner {
             e.printStackTrace();
             return dfgp.convertIntoBPMNDiagram();
         }
+        return bpmnDiagram;
+    }
+
+    public BPMNDiagram discoverFromSDFG(SimpleDirectlyFollowGraph sdfg) throws Exception {
+        this.log = sdfg.getSimpleLog();
+        dfgp = sdfg;
+        transformDFGPintoBPMN();
+        if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
         return bpmnDiagram;
     }
 
@@ -255,7 +264,8 @@ public class SplitMiner {
         if(removeLoopActivities) helper.removeLoopActivityMarkers(bpmnDiagram);
 
         if( replaceIORs ) {
-//            helper.expandSplitGateways(bpmnDiagram);
+            helper.collapseSplitGateways(bpmnDiagram);
+            helper.collapseJoinGateways(bpmnDiagram);
         } else {
             helper.collapseSplitGateways(bpmnDiagram);
             helper.collapseJoinGateways(bpmnDiagram);

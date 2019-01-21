@@ -6,6 +6,8 @@ import au.edu.qut.processmining.miners.splitminer.SplitMiner;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
+import au.edu.unimelb.processmining.optimization.AutomatedProcessDiscoveryOptimizer;
+import au.edu.unimelb.processmining.optimization.MinerProxy;
 import com.raffaeleconforti.log.util.LogImporter;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
@@ -17,12 +19,13 @@ import org.processmining.plugins.bpmn.plugins.BpmnExportPlugin;
 
 import java.io.File;
 
+
 /**
  * Created by Adriano on 16/08/18.
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, BPM19}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -84,8 +87,17 @@ public class ServiceProvider {
             case OM:
                 testProvider.omegaMiner(fargs[0]);
                 break;
+            case BPM19:
+                testProvider.APDO(fargs[0], fargs[1]);
+                break;
         }
 
+    }
+
+    public void APDO(String logPath, String order) {
+        AutomatedProcessDiscoveryOptimizer optimizer = new AutomatedProcessDiscoveryOptimizer(Integer.valueOf(order), AutomatedProcessDiscoveryOptimizer.MetaOpt.RLS, MinerProxy.MinerTAG.SM);
+        optimizer.init(logPath);
+        optimizer.searchOptimalBPMN();
     }
 
     public void omegaMiner(String logPath) {

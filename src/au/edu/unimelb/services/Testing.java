@@ -245,6 +245,7 @@ public class Testing {
     public static void accuracyOnRealModelsSet(Abs aType, Opd oType, String modelsDir, String logsDir, int maxOrder) {
         MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
         double[] accuracy;
+        double measure;
         long[] time;
         String modelPath;
         String logPath;
@@ -263,12 +264,14 @@ public class Testing {
                 modelPath = modelsDir + i + ".pnml";
                 logPath = logsDir + i + ".xes.gz";
                 if( logPath.contains("PRT") && (i==5 || i==8 || i>10) ) continue;
-                order = 2;
-                while (order < maxOrder) {
+                order = 5;
+                while (order <= maxOrder) {
                     try {
-                        accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
+//                        accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
+                        measure = calculator.fitness(aType, oType, logPath, modelPath, order);
                         time = calculator.getExecutionTime();
-                        writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0] + time[3]) + "," + (time[1] + time[3]));
+//                        writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0] + time[3]) + "," + (time[1] + time[3]));
+                        writer.println(modelPath + "," + order + "," + measure + ",0,0," + (time[0] + time[3]) + ",-");
                         writer.flush();
                         order++;
                     } catch (Exception e) {

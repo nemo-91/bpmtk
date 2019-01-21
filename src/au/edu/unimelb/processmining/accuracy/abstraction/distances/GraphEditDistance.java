@@ -14,7 +14,7 @@ public class GraphEditDistance {
     public GraphEditDistance(){}
 
 
-    public double averageDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, int order) {
+    public double averageDistance(Collection<Subtrace> subtraces1, Collection<Subtrace> subtraces2, int order) {
         Map<Subtrace, Double> minDistances;
         double distance;
         int size = subtraces1.size();
@@ -38,7 +38,7 @@ public class GraphEditDistance {
         return distance/size;
     }
 
-    public double getUnbalancedSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, double order) {
+    public double getUnbalancedSubtracesDistance(Collection<Subtrace> subtraces1, Collection<Subtrace> subtraces2, double order) {
         double[][] matrix;
         double[][] umatrix;
         double distance = 0;
@@ -85,7 +85,7 @@ public class GraphEditDistance {
         return distance/subtraces1.size();
     }
 
-    public double getSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, double order) {
+    public double getSubtracesDistance(Collection<Subtrace> subtraces1, Collection<Subtrace> subtraces2, double order) {
         double[][] matrix;
         double distance = 0;
         int rows = subtraces1.size();
@@ -107,8 +107,6 @@ public class GraphEditDistance {
             r++;
         }
 
-        System.out.print("DEBUG - starting HUN... ");
-
         HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
         int[] matches = hu2.execute();
 
@@ -119,7 +117,7 @@ public class GraphEditDistance {
         return distance/subtraces1.size();
     }
 
-    public double getFreqWeightedSubtracesDistance(Set<Subtrace> subtraces1, Set<Subtrace> subtraces2, double order, double globalGramsCount) {
+    public double getFreqWeightedSubtracesDistance(Collection<Subtrace> subtraces1, Collection<Subtrace> subtraces2, double order, double globalGramsCount) {
         double[][] matrix;
         double distance = 0;
         int rows = subtraces1.size();
@@ -141,7 +139,7 @@ public class GraphEditDistance {
             r++;
         }
 
-        System.out.print("DEBUG - starting HUN... ");
+//        System.out.print("DEBUG - starting HUN... ");
 
         HungarianAlgorithm hu2 = new HungarianAlgorithm(matrix);
         int[] matches = hu2.execute();

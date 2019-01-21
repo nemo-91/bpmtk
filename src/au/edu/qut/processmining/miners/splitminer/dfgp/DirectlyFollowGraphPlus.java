@@ -37,6 +37,8 @@ import java.util.*;
  */
 public class DirectlyFollowGraphPlus {
 
+    private static boolean completeCloning = false;
+
     private SimpleLog log;
     private int startcode;
     private int endcode;
@@ -59,6 +61,8 @@ public class DirectlyFollowGraphPlus {
 //    private boolean percentileOnBest;
     private boolean parallelismsFirst;
 
+    protected DirectlyFollowGraphPlus(){}
+
     public DirectlyFollowGraphPlus(SimpleLog log) {
         this(log, DFGPUIResult.FREQUENCY_THRESHOLD, DFGPUIResult.PARALLELISMS_THRESHOLD, DFGPUIResult.STD_FILTER, DFGPUIResult.PARALLELISMS_FIRST);
     }
@@ -74,7 +78,33 @@ public class DirectlyFollowGraphPlus {
         this.parallelismsFirst = parallelismsFirst;
     }
 
+    public DirectlyFollowGraphPlus(DirectlyFollowGraphPlus directlyFollowGraphPlus) {
+        this.startcode = directlyFollowGraphPlus.startcode;
+        this.endcode = directlyFollowGraphPlus.endcode;
+        this.edges = new HashSet<>(directlyFollowGraphPlus.edges);
+        this.nodes = directlyFollowGraphPlus.nodes;
+        this.loopsL1 = directlyFollowGraphPlus.loopsL1;
+
+        if(completeCloning) {
+            this.log = directlyFollowGraphPlus.log;
+            this.loopsL2 = directlyFollowGraphPlus.loopsL2;
+            this.parallelisms = directlyFollowGraphPlus.parallelisms;
+            this.bestEdges = directlyFollowGraphPlus.bestEdges;
+            this.percentileFrequencyThreshold = directlyFollowGraphPlus.percentileFrequencyThreshold;
+            this.parallelismsThreshold = directlyFollowGraphPlus.parallelismsThreshold;
+            this.filterType = directlyFollowGraphPlus.filterType;
+            this.filterThreshold = directlyFollowGraphPlus.filterThreshold;
+            this.parallelismsFirst = directlyFollowGraphPlus.parallelismsFirst;
+        }
+    }
+
+    public int size() { return nodes.size(); }
+    public Set<DFGEdge> getEdges() { return edges; }
     public SimpleLog getSimpleLog() { return log; }
+    public int getStartcode() { return startcode; }
+    public int getEndcode() { return endcode; }
+    public Set<Integer> getLoopsL1() { return loopsL1; }
+    public Map<Integer, HashSet<Integer>> getParallelisms() { return parallelisms; }
 
     public BPMNDiagram getDFG() {
         buildDirectlyFollowsGraph();
@@ -136,7 +166,7 @@ public class DirectlyFollowGraphPlus {
     }
 
     public void buildDFGP() {
-        System.out.println("DFGP - settings > " + parallelismsThreshold + " : " + percentileFrequencyThreshold + " : " + filterType.toString());
+        System.out.println("DFGP - settings > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
 
         buildDirectlyFollowsGraph();                //first method to execute
         detectLoops();                              //depends on buildDirectlyFollowsGraph()
@@ -635,6 +665,7 @@ public class DirectlyFollowGraphPlus {
         int event, prevEvent;
 
         for( String t : subtraces ) {
+            System.out.println("INFO - (dfgp) subtrace : " + t);
             trace = new StringTokenizer(t, ":");
 
             prevEvent = Integer.valueOf(trace.nextToken());
@@ -656,7 +687,6 @@ public class DirectlyFollowGraphPlus {
             }
         }
 
-        detectParallelisms();
         return enhancement;
     }
 
@@ -678,10 +708,9 @@ public class DirectlyFollowGraphPlus {
             }
         }
 
-        detectParallelisms();
+//        detectParallelisms();
         return reduction;
     }
-
 
     /* DEBUG methods */
 

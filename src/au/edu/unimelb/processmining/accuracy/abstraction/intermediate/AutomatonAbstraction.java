@@ -128,11 +128,18 @@ public class AutomatonAbstraction {
 
         int wid = -2;
         Integer lid;
+        String label;
+        int i;
 
         for( int aid : automatonEIDs.keySet() ) {
-            if( automatonEIDs.get(aid).equalsIgnoreCase("tau") ) idsMapping.put(aid, TAU);
-            else if( (lid = logEIDs.get(automatonEIDs.get(aid))) == null ) idsMapping.put(aid, wid--);
-            else idsMapping.put(aid, lid);
+            if( automatonEIDs.get(aid).contains("tau") || automatonEIDs.get(aid).matches("t\\d+")) idsMapping.put(aid, TAU);
+            else {
+                label = automatonEIDs.get(aid);
+                i = label.indexOf("+");
+                if( i != -1 ) label = label.substring(0, i);
+                if( (lid = logEIDs.get(label)) == null ) idsMapping.put(aid, wid--);
+                else idsMapping.put(aid, lid);
+            }
         }
     }
 
