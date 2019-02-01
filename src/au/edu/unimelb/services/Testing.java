@@ -244,13 +244,17 @@ public class Testing {
 
     public static void accuracyOnRealModelsSet(Abs aType, Opd oType, String modelsDir, String logsDir, int maxOrder) {
         MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
-        double[] accuracy;
-        double measure;
+        double[] accuracy = null;
+        double measure = 0.0;
         long[] time;
         String modelPath;
         String logPath;
         PrintWriter writer = null;
         int order;
+//        switch this flag to get either fitness or precision or fscore (i.e. all of them)
+        boolean fscore = true;
+        boolean petrinet = false;
+        String print;
 
         long eTime = System.currentTimeMillis();
 
@@ -261,22 +265,32 @@ public class Testing {
 
         try {
             for(int i = 1; i<13; i++) {
-                modelPath = modelsDir + i + ".pnml";
+                if(petrinet) modelPath = modelsDir + i + ".pnml";
+                else modelPath = modelsDir + i + ".bpmn";
                 logPath = logsDir + i + ".xes.gz";
                 if( logPath.contains("PRT") && (i==5 || i==8 || i>10) ) continue;
+
                 order = 5;
                 while (order <= maxOrder) {
                     try {
-//                        accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
-                        measure = calculator.fitness(aType, oType, logPath, modelPath, order);
-                        time = calculator.getExecutionTime();
-//                        writer.println(modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0] + time[3]) + "," + (time[1] + time[3]));
-                        writer.println(modelPath + "," + order + "," + measure + ",0,0," + (time[0] + time[3]) + ",-");
+                        if(fscore) {
+                            accuracy = calculator.accuracy(aType, oType, logPath, modelPath, order);
+                            time = calculator.getExecutionTime();
+                            print = modelPath + "," + order + "," + accuracy[0] + "," + accuracy[1] + "," + accuracy[2] + "," + (time[0] + time[3]) + "," + (time[1] + time[3]);
+                            System.out.println("WRITER - " + print);
+                            writer.println(print);
+                        } else {
+                            measure = calculator.fitness(aType, oType, logPath, modelPath, order);
+                            time = calculator.getExecutionTime();
+                            writer.println(modelPath + "," + order + "," + measure + ",0,0," + (time[0] + time[3]) + ",-");
+                        }
                         writer.flush();
                         order++;
                     } catch (Exception e) {
+                        e.printStackTrace();
                         break;
                     } catch (Error e) {
+                        e.printStackTrace();
                         break;
                     }
                 }

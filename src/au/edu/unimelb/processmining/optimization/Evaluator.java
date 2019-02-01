@@ -26,7 +26,7 @@ public class Evaluator implements Callable<Object[]> {
     @Override
     public Object[] call() throws Exception {
         SubtraceAbstraction staProcess;
-        Object[] results = new Object[4];
+        Object[] results = new Object[5];
 
         try {
 //            bpmn = proxy.getBPMN(sdfg);
@@ -39,6 +39,7 @@ public class Evaluator implements Callable<Object[]> {
             results[2] = new Double((2.0 * (Double)results[0] * (Double)results[1]) / ((Double)results[0] + (Double)results[1]));
             results[2] = (Double)results[0] == Double.NaN ? 0.0 : results[2];
             results[3] = staProcess;
+            results[4] = this.bpmn;
         } catch(Exception e) {
             results[0] = results[1] = results[2] = 0.0;
         } catch(Error e) {

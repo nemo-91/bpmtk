@@ -62,6 +62,8 @@ public class ComplexityCalculator {
         this.diagram = diagram;
     }
 
+    public void setBPMN(BPMNDiagram bpmn){ diagram = bpmn; }
+
     public Map<String, String> computeComplexity(  BPMNDiagram model, boolean size, boolean cfc, boolean acd,
                                                    boolean mcd, boolean cnc, boolean density,
                                                    boolean structuredness, boolean separability,

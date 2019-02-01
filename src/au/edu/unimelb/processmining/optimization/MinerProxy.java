@@ -16,13 +16,16 @@ public class MinerProxy {
 
     private SplitMiner sm;
 
-    private ArrayList<Params> paramsRandom;
+    private ArrayList<Params> restartParams;
+    private ArrayList<Params> perturbParams;
+    private Params defaultParams;
 
     public MinerProxy(MinerTAG tag) {
         this.tag = tag;
         ArrayList<Params> params;
-        Random random = new Random();
+        Random random = new Random(1);
         Params param;
+        Double dparam0;
 
         switch( tag ) {
             case SM:
@@ -32,12 +35,19 @@ public class MinerProxy {
                 for(int i=2; i < 6; i++)
                     for(int j=1; j < 4; j++)
                         params.add(new Params(i*0.2, j*0.2));
-                paramsRandom = new ArrayList<>(params.size()+1);
-                paramsRandom.add(new Params(0.4, 0.1));
+                restartParams = new ArrayList<>(params.size()+1);
+
+                defaultParams = new Params(0.4, 0.1);
+                restartParams.add(defaultParams);
                 do {
                     param = params.remove(random.nextInt(params.size()));
-                    paramsRandom.add(param);
+                    restartParams.add(param);
                 } while( !params.isEmpty() );
+
+                perturbParams = new ArrayList<>(5);
+                dparam0 = defaultParams.getParam(0);
+                for(int j=0; j < 6; j++)
+                    perturbParams.add(new Params(dparam0, j*0.2));
                 break;
             default:
                 break;
@@ -48,14 +58,35 @@ public class MinerProxy {
 
     public MinerTAG getMinerTAG() { return tag; }
 
+    public SimpleDirectlyFollowGraph perturb(SimpleLog slog, SimpleDirectlyFollowGraph sdfg) {
+        DirectlyFollowGraphPlus dfgp;
+        SimpleDirectlyFollowGraph sdfgo;
+        Params param;
+
+        switch( tag ) {
+            case SM:
+//                if( perturbParams.isEmpty() ) return null;
+                param = perturbParams.remove(0);
+                perturbParams.add(param);
+
+                dfgp = new DirectlyFollowGraphPlus(slog, param.getParam(0),  param.getParam(1), DFGPUIResult.FilterType.WTH, false);
+                dfgp.buildDFGP();
+                sdfgo = new SimpleDirectlyFollowGraph(sdfg);
+                sdfgo.setParallelisms(dfgp.getParallelisms());
+                return sdfgo;
+            default:
+                return null;
+        }
+    }
+
     public SimpleDirectlyFollowGraph restart(SimpleLog slog) {
         DirectlyFollowGraphPlus dfgp;
         Params param;
 
         switch( tag ) {
             case SM:
-                if( paramsRandom.isEmpty() ) return null;
-                param = paramsRandom.remove(0);
+                if( restartParams.isEmpty() ) return null;
+                param = restartParams.remove(0);
                 dfgp = new DirectlyFollowGraphPlus(slog, param.getParam(0),  param.getParam(1), DFGPUIResult.FilterType.WTH, false);
                 dfgp.buildDFGP();
                 return new SimpleDirectlyFollowGraph(dfgp);

@@ -31,7 +31,7 @@ public class SubtraceAbstraction extends Abstraction {
         subtraces = new HashMap<>();
         matrix = null;
         globalGramsCount = 0.0;
-        random = new Random();
+        random = new Random(1);
     }
 
     public void addSubtrace(Subtrace subtrace) {
@@ -75,7 +75,7 @@ public class SubtraceAbstraction extends Abstraction {
         SubtraceAbstraction m = (SubtraceAbstraction) a;
 
         GraphEditDistance gld = new GraphEditDistance();
-//        System.out.println("DEBUG - computing hungarian distance... ");
+        System.out.println("DEBUG - computing hungarian distance, global count: " + globalGramsCount);
 
         if( globalGramsCount == 0.0 )
             return 1.0 - gld.getSubtracesDistance(this.subtraces.values(), m.subtraces.values(), (double)order);
@@ -206,7 +206,7 @@ public class SubtraceAbstraction extends Abstraction {
             return (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
         } catch (Exception e) {
 //            e.printStackTrace();
-            System.out.println("ERROR - impossible to parse the process object.");
+//            System.out.println("ERROR - impossible to parse the process object.");
             return null;
         }
     }

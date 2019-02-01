@@ -8,6 +8,7 @@ import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
 import au.edu.unimelb.processmining.optimization.AutomatedProcessDiscoveryOptimizer;
 import au.edu.unimelb.processmining.optimization.MinerProxy;
+import au.edu.unimelb.processmining.optimization.SplitMinerHPO;
 import com.raffaeleconforti.log.util.LogImporter;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
@@ -25,7 +26,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, BPM19}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, BPM19, SMHPO}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -88,14 +89,21 @@ public class ServiceProvider {
                 testProvider.omegaMiner(fargs[0]);
                 break;
             case BPM19:
-                testProvider.APDO(fargs[0], fargs[1]);
+                testProvider.APDO(fargs[0], fargs[1], fargs[2]);
+                break;
+            case SMHPO:
+                testProvider.SMHPO(fargs[0]);
                 break;
         }
-
     }
 
-    public void APDO(String logPath, String order) {
-        AutomatedProcessDiscoveryOptimizer optimizer = new AutomatedProcessDiscoveryOptimizer(Integer.valueOf(order), AutomatedProcessDiscoveryOptimizer.MetaOpt.RLS, MinerProxy.MinerTAG.SM);
+    public void SMHPO(String logPath) {
+        SplitMinerHPO smhpo = new SplitMinerHPO();
+        smhpo.hyperparamEvaluation(logPath);
+    }
+
+    public void APDO(String logPath, String order, String metaopt) {
+        AutomatedProcessDiscoveryOptimizer optimizer = new AutomatedProcessDiscoveryOptimizer(Integer.valueOf(order), AutomatedProcessDiscoveryOptimizer.MetaOpt.valueOf(metaopt), MinerProxy.MinerTAG.SM);
         optimizer.init(logPath);
         optimizer.searchOptimalBPMN();
     }

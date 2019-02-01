@@ -12,18 +12,22 @@ import java.util.*;
 
 public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
 
+    public enum PERTYPE {FIT, PREC};
+
+    private static Random random = new Random(1);
+
     private SimpleLog slog;
     private int startcode;
     private int endcode;
 
-    private BitSet dfg;
     private Map<Integer, HashSet<Integer>> parallelisms;
     private Set<Integer> loopsL1;
     private Set<Integer> tabu;
 
-    private int size;
+    private BitSet dfg;
     private Integer[] outgoings;
     private Integer[] incomings;
+    private int size;
 
     public SimpleDirectlyFollowGraph(SimpleDirectlyFollowGraph sdfg) {
         this.slog = sdfg.slog;
@@ -73,6 +77,8 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
         }
     }
 
+    public void setParallelisms(Map<Integer, HashSet<Integer>> parallelisms) { this.parallelisms = parallelisms; }
+
     @Override
     public SimpleLog getSimpleLog(){ return slog; }
 
@@ -106,35 +112,6 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
         return enhancement;
     }
 
-    public String enhance( String subtrace, int strength ) {
-        String leftover;
-        int enhancement = 0;
-        int src, tgt;
-
-        StringTokenizer trace = new StringTokenizer(subtrace, ":");
-        src = Integer.valueOf(trace.nextToken());
-
-        while( trace.hasMoreTokens() && enhancement != strength) {
-            tgt = Integer.valueOf(trace.nextToken());
-            if( tgt == endcode ) tgt = size -1;
-            if( !dfg.get(src*size + tgt) ) {
-                dfg.set(src*size + tgt);
-                outgoings[src]++;
-                incomings[tgt]++;
-                enhancement++;
-            }
-            src = tgt;
-        }
-
-        if( !trace.hasMoreTokens() ) return null;
-        else {
-            leftover =  ":" + src + ":";
-            while( trace.hasMoreTokens() ) leftover = leftover + trace.nextToken() + ":";
-        }
-
-        return leftover;
-    }
-
     @Override
     public int reduce( Set<String> subtraces ) {
         int reduction = 0;
@@ -148,8 +125,8 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
             while( trace.hasMoreTokens() ) {
                 tgt = Integer.valueOf(trace.nextToken());
                 if( tgt == endcode ) tgt = size -1;
-                if( isRemovable(src, tgt) && dfg.get(src*size + tgt) ) {
-                    dfg.clear(src*size + tgt);
+                if( dfg.get(src*size + tgt) && checkAndRemove(src*size + tgt) ) {
+//                dfg.clear(src*size + tgt);
                     outgoings[src]--;
                     incomings[tgt]--;
                     reduction++;
@@ -158,6 +135,37 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
             }
         }
         return reduction;
+    }
+
+    public String enhance( String subtrace, int strength ) {
+        String leftover;
+        int enhancement = 0;
+        int src, tgt;
+
+        StringTokenizer trace = new StringTokenizer(subtrace, ":");
+        src = Integer.valueOf(trace.nextToken());
+
+        while( trace.hasMoreTokens() && enhancement != strength) {
+            tgt = Integer.valueOf(trace.nextToken());
+            if( tgt == endcode ) tgt = size -1;
+            if( !dfg.get(src*size + tgt) && isAddable(src, tgt) ) {
+                dfg.set(src*size + tgt);
+                outgoings[src]++;
+                incomings[tgt]++;
+                enhancement++;
+            }
+            src = tgt;
+        }
+
+        if( !trace.hasMoreTokens() ) {
+            if( enhancement == strength ) return new String();
+            else return null;
+        }
+
+        leftover =  ":" + src + ":";
+        while( trace.hasMoreTokens() ) leftover = leftover + trace.nextToken() + ":";
+
+        return leftover;
     }
 
     public String reduce( String subtrace, int strength ) {
@@ -171,8 +179,8 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
         while( trace.hasMoreTokens() && reduction != strength ) {
             tgt = Integer.valueOf(trace.nextToken());
             if( tgt == endcode ) tgt = size -1;
-            if( isRemovable(src, tgt) && dfg.get(src*size + tgt) ) {
-                dfg.clear(src*size + tgt);
+            if( dfg.get(src*size + tgt) && checkAndRemove(src*size + tgt) ) {
+//                dfg.clear(src*size + tgt);
                 outgoings[src]--;
                 incomings[tgt]--;
                 reduction++;
@@ -180,38 +188,125 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
             src = tgt;
         }
 
-        if( !trace.hasMoreTokens() ) return null;
-        else {
-            leftover =  ":" + src + ":";
-            while( trace.hasMoreTokens() ) leftover = leftover + trace.nextToken() + ":";
+
+        if( !trace.hasMoreTokens() ) {
+            if( reduction == strength ) return new String();
+            else return null;
         }
+
+        leftover =  ":" + src + ":";
+        while( trace.hasMoreTokens() ) leftover = leftover + trace.nextToken() + ":";
 
         return leftover;
     }
 
-    public void perturb(int strength) {
-        Random random = new Random();
-        int max = size*size;
+    public void perturb(int strength, PERTYPE pertype) {
+        int bound = size*size;
         int next;
         int src, tgt;
+        int perturbations;
+        int attempts;
+        int maxa = strength * 4;
 
-        while( strength != 0 ) {
-            next = random.nextInt(max);
-            if( !dfg.get(next) ) {
-                if( (next/size != (size-1)) && (next%size != 0) ) {
-                    strength--;
-                    dfg.set(next);
+
+        System.out.println("DEBUG - perturbing.");
+
+        attempts = 0;
+        perturbations = strength;
+
+        switch (pertype) {
+            case FIT:
+//            this type of perturbation will add edges, aiming to increase fitness
+                while( perturbations != 0 && attempts++ != maxa) {
+                    next = random.nextInt(bound);
+                    if( !dfg.get(next) && isAddable(src = next/size, tgt = next%size) ) {
+                        dfg.set(next);
+                        outgoings[src]++;
+                        incomings[tgt]++;
+                        perturbations--;
+                    }
                 }
-            } else if( isRemovable(src=next/size, tgt=next%size) ) {
-                outgoings[src]--;
-                incomings[tgt]--;
-                strength--;
-            }
+                break;
+            case PREC:
+//            this type of perturbation will remove edges, aiming to increase precision
+                while( perturbations != 0 && attempts++ != maxa) {
+                    next = random.nextInt(bound);
+                    if( dfg.get(next) && checkAndRemove(next) ) {
+//                        dfg.clear(next); this is done within checkAndRemove()
+                        outgoings[next/size]--;
+                        incomings[next%size]--;
+                        perturbations--;
+                    }
+                }
+                break;
         }
+        System.out.println("DEBUG - attempts(" + pertype.toString() + ") & perturbations(left): " + attempts + " & " + perturbations);
     }
+
+    private boolean isAddable(int src, int tgt) {
+        if( areConcurrent(src,tgt) ) {
+            parallelisms.get(src).remove(tgt);
+            parallelisms.get(tgt).remove(src);
+            System.out.println("WATCHOUT - removed parallelism");
+            return true;
+        }
+        return (src != tgt) && (src != (size-1)) && (tgt != 0);// && !areConcurrent(src, tgt) ;
+    }
+
 
     private boolean isRemovable(int src, int tgt) {
         return outgoings[src] > 1 && incomings[tgt] > 1 && !tabu.contains(src*size+tgt) ;
+    }
+
+    private boolean checkAndRemove(int edge) {
+        int src = edge/size;
+        int tgt = edge%size;
+        int end;
+
+        if( outgoings[src] == 1 || incomings[tgt] == 1 || tabu.contains(edge) ) return false;
+        dfg.clear(edge);
+
+        ArrayList<Integer> toVisit = new ArrayList<>();
+        Set<Integer> unvisited = new HashSet<>();
+
+//      forward exploration
+        toVisit.add(0);
+        for(int n = 1; n<size; n++) unvisited.add(n);
+
+        while( !toVisit.isEmpty() ) {
+            src = toVisit.remove(0);
+            for( tgt = 1; tgt < size; tgt++ )
+                if( dfg.get(src*size+tgt) && unvisited.contains(tgt) ) {
+                    toVisit.add(tgt);
+                    unvisited.remove(tgt);
+                }
+        }
+
+        if( !unvisited.isEmpty() ) {
+            dfg.set(edge);
+            return false;
+        }
+
+//      backward exploration
+        end = size-1;
+        toVisit.add(end);
+        for(int n = 0; n < end; n++) unvisited.add(n);
+
+        while( !toVisit.isEmpty() ) {
+            tgt = toVisit.remove(0);
+            for( src = 0; src < end; src++ )
+                if( dfg.get(src*size+tgt) && unvisited.contains(src) ) {
+                    toVisit.add(src);
+                    unvisited.remove(src);
+                }
+        }
+
+        if( !unvisited.isEmpty() ) {
+            dfg.set(edge);
+            return false;
+        }
+
+        return true;
     }
 
     @Override

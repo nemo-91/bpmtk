@@ -26,6 +26,8 @@ public class AutomatedProcessDiscoveryOptimizer {
     private SimpleLog slog;
     private BPMNDiagram bpmn;
 
+    private String modelName;
+
     private Metaheuristics explorer;
 
     public AutomatedProcessDiscoveryOptimizer(int order, MetaOpt metaheuristics, MinerProxy.MinerTAG mtag) {
@@ -36,6 +38,11 @@ public class AutomatedProcessDiscoveryOptimizer {
 
     public boolean init(String logPath) {
         XLog xlog;
+        modelName = logPath.substring(logPath.lastIndexOf("\\")+1);
+        modelName = modelName.substring(0, modelName.indexOf("."));
+        if(!modelName.contains("PRT")) modelName = "PUB" + modelName;
+
+//        System.out.println("MODEL NAME = " + modelName);
 
         try {
             xlog = LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath);
@@ -53,7 +60,11 @@ public class AutomatedProcessDiscoveryOptimizer {
         switch(metaheuristics) {
             case RLS:
                 explorer = new RepeatedLocalSearch(minerProxy);
-                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, N, TIMEOUT);
+                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, N, TIMEOUT, modelName);
+                break;
+            case ILS:
+                explorer = new IteratedLocalSearch(minerProxy);
+                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, N, TIMEOUT, modelName);
                 break;
             case TS:
                 explorer = new TabuSearch();
@@ -64,11 +75,11 @@ public class AutomatedProcessDiscoveryOptimizer {
         }
 
 //        exportBPMN(bpmn, ".\\os-bpmn_" + System.currentTimeMillis() + ".bpmn");
-        exportBPMN(bpmn, ".\\test.bpmn");
+        exportBPMN(bpmn, ".\\" + metaheuristics.toString() + "_" + modelName + "_best.bpmn");
         return  bpmn;
     }
 
-    private void exportBPMN(BPMNDiagram diagram, String path) {
+    protected static void exportBPMN(BPMNDiagram diagram, String path) {
         BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
         UIContext context = new UIContext();
         UIPluginContext uiPluginContext = context.getMainPluginContext();

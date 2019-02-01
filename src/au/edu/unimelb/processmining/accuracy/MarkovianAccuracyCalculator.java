@@ -127,12 +127,12 @@ public class MarkovianAccuracyCalculator {
         time[1] = System.currentTimeMillis();
 
         switch(opd) {
-            case SPL:
-                precision = processAbstraction.minus(logAbstraction);
-                break;
-            case STD:
             case HUN:
                 precision = processAbstraction.minusHUN(logAbstraction);
+                break;
+            case STD:
+            case SPL:
+                precision = processAbstraction.minus(logAbstraction);
                 break;
             case GRD:
                 precision = processAbstraction.minusGRD(logAbstraction);

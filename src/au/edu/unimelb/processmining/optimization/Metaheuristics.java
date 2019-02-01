@@ -6,5 +6,5 @@ import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstra
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 
 public interface Metaheuristics {
-    BPMNDiagram searchOptimalSolution(SimpleLog slog, int order, int maxit, int neighbourhood, int timeout);
+    BPMNDiagram searchOptimalSolution(SimpleLog slog, int order, int maxit, int neighbourhood, int timeout, String name);
 }

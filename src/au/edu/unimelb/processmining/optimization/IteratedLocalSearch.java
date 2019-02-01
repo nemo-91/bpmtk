@@ -15,9 +15,11 @@ import static java.lang.Thread.sleep;
 public class IteratedLocalSearch implements Metaheuristics {
 
     private static int PERTURBATION_STRENGTH = 2;
-    private static boolean PERTURBATION = false;
 
     private MinerProxy minerProxy;
+
+    private BPMNDiagram currentBPMN;
+    private BPMNDiagram bestBPMN;
 
     private SimpleDirectlyFollowGraph currentSDFG;
     private SimpleDirectlyFollowGraph bestSDFG;
@@ -29,16 +31,19 @@ public class IteratedLocalSearch implements Metaheuristics {
     private SubtraceAbstraction staLog;
     private SubtraceAbstraction staProcess;
 
-    private int restarts;
+    private PrintWriter writer;
+    private int perturbations;
 
     public IteratedLocalSearch(MinerProxy proxy) {
         minerProxy = proxy;
     }
 
-    public BPMNDiagram searchOptimalSolution(SimpleLog slog, int order, int maxit, int neighbourhood, int timeout) {
+    public SimpleDirectlyFollowGraph getBestSDFG() { return bestSDFG; }
+
+    public BPMNDiagram searchOptimalSolution(SimpleLog slog, int order, int maxit, int neighbourhood, int timeout, String modelName) {
         int iterations = 0;
         int icounter = 0;
-        restarts = 0;
+        perturbations = 0;
         staLog = LogAbstraction.subtrace(slog, order);
 
         ExecutorService multiThreadService;
@@ -53,33 +58,38 @@ public class IteratedLocalSearch implements Metaheuristics {
         BPMNDiagram tmpBPMN;
 
         boolean improved;
+        boolean export = false;
 
 
-        PrintWriter writer = null;
+        writer = null;
         try {
-            writer = new PrintWriter(".\\ils_results__" + System.currentTimeMillis() + ".csv");
+            writer = new PrintWriter(".\\ils_" + modelName + ".csv");
             writer.println("iteration,fitness,precision,fscore,itime");
         } catch(Exception e) { System.out.println("ERROR - impossible to print the markovian abstraction."); }
 
         long eTime = System.currentTimeMillis();
         long iTime = System.currentTimeMillis();
 
-        if(PERTURBATION) {
-            currentSDFG = minerProxy.restart(slog);
+        while( true ) {
             try {
-                staProcess = SubtraceAbstraction.abstractProcessBehaviour(minerProxy.getBPMN(currentSDFG), order, slog);
+                currentSDFG = minerProxy.restart(slog);
+                currentBPMN = minerProxy.getBPMN(currentSDFG);
+                staProcess = SubtraceAbstraction.abstractProcessBehaviour(currentBPMN, order, slog);
                 currentAccuracy[0] = staLog.minus(staProcess);
                 currentAccuracy[1] = staProcess.minus(staLog);
                 currentAccuracy[2] = (2.0 * currentAccuracy[0] * currentAccuracy[1]) / (currentAccuracy[0] + currentAccuracy[1]);
+                break;
             } catch(Exception e) {
                 System.out.println("ERROR - impossible to generate the initial bpmn.");
-                return null;
+                continue;
             }
-        } else restart(slog, order);
+        }
+
         bestScores = new ArrayList<>();
         bestScores.add(currentAccuracy[2]);
         hits.add(iterations);
         bestSDFG = currentSDFG;
+        bestBPMN = currentBPMN;
 
         while( System.currentTimeMillis() - eTime < timeout && iterations < maxit && currentSDFG != null) {
             try {
@@ -89,17 +99,16 @@ public class IteratedLocalSearch implements Metaheuristics {
                     bestScores.add(currentAccuracy[2]);
                     hits.add(iterations);
                     bestSDFG = currentSDFG;
+                    bestBPMN = currentBPMN;
                 }
 
-//                System.out.println("INFO - iteration: " + iterations + " - Q( " + currentAccuracy[2] + " )");
-//                System.out.println("INFO - fit & prec : " + currentAccuracy[0] + " & " + currentAccuracy[1]);
-
                 iTime = System.currentTimeMillis() - iTime;
+                if(export) AutomatedProcessDiscoveryOptimizer.exportBPMN(currentBPMN, ".\\ils_" + modelName + "_" + iterations + ".bpmn");
                 writer.println(iterations + "," + currentAccuracy[0] + "," + currentAccuracy[1] + "," + currentAccuracy[2] + "," + iTime);
                 writer.flush();
                 iterations++;
                 iTime = System.currentTimeMillis();
-//                that's a logical XOR
+
                 if( currentAccuracy[1] > currentAccuracy[0] ) {
 /**     if precision is higher than fitness, we explore the DFGs having more edges.
  *      to do so, we select the most frequent edges of the markovian abstraction of the log that do not appear
@@ -111,13 +120,15 @@ public class IteratedLocalSearch implements Metaheuristics {
                     staLog.computeDifferences(staProcess);
                     subtrace = staLog.nextMismatch();
                     tmpSDFG = new SimpleDirectlyFollowGraph(currentSDFG);
-                    do {
+                    while( neighbours.size() != neighbourhood && subtrace != null ) {
+                        if( subtrace.isEmpty() && (subtrace = staLog.nextMismatch()) == null ) break;
+
                         if( (subtrace = tmpSDFG.enhance(subtrace, 1)) == null ) subtrace = staLog.nextMismatch();
                         else {
                             neighbours.add(tmpSDFG);
                             tmpSDFG = new SimpleDirectlyFollowGraph(currentSDFG);
                         }
-                    } while( neighbours.size() != neighbourhood && subtrace != null );
+                    }
 
                 } else {
 /**     if fitness is higher than precision, we explore the DFGs having less edges.
@@ -130,39 +141,34 @@ public class IteratedLocalSearch implements Metaheuristics {
                     staProcess.computeDifferences(staLog);
                     subtrace = staProcess.nextMismatch();
                     tmpSDFG = new SimpleDirectlyFollowGraph(currentSDFG);
-                    do {
+                    while( neighbours.size() != neighbourhood && subtrace != null ) {
+                        if( subtrace.isEmpty() && (subtrace = staProcess.nextMismatch()) == null ) break;
+
                         if( (subtrace = tmpSDFG.reduce(subtrace, 1)) == null ) subtrace = staProcess.nextMismatch();
                         else {
                             neighbours.add(tmpSDFG);
                             tmpSDFG = new SimpleDirectlyFollowGraph(currentSDFG);
                         }
-                    } while( neighbours.size() != neighbourhood && subtrace != null );
-
+                    }
                 }
 
-                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
+//                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
 
+                if( neighbours.isEmpty() ) {
+                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
+                    while( !perturb(slog, order) );
+                    continue;
+                }
 
                 multiThreadService = Executors.newFixedThreadPool(neighbours.size());
                 for( SimpleDirectlyFollowGraph neighbourSDFG : neighbours ) {
-                    try {
-                        tmpBPMN = minerProxy.getBPMN(neighbourSDFG);
-//                        System.out.println("INFO - created 1 neighbour.");
-                    }
+                    try { tmpBPMN = minerProxy.getBPMN(neighbourSDFG); }
                     catch(Exception e) { System.out.println("WARNING - discarded one neighbour."); continue; }
                     evalThread = new Evaluator(staLog, slog, minerProxy, tmpBPMN, order);
                     evalResult = multiThreadService.submit(evalThread);
                     neighboursEvaluations.put(neighbourSDFG, evalResult);
-//                    System.out.println("INFO - exploring 1 neighbour.");
                 }
 
-                if( neighboursEvaluations.isEmpty() ) {
-                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
-                    restart(slog, order);
-                    continue;
-                }
-
-//                System.out.println("INFO - synchronising with threads.");
                 sleep(2500);
 
                 improved = false;
@@ -173,12 +179,13 @@ public class IteratedLocalSearch implements Metaheuristics {
                     if( evalResult.isDone() ) {
                         done++;
                         result = evalResult.get();
-                        if( (Double)result[2] > currentAccuracy[2] ) {
+                        if( (Double)result[2] >= currentAccuracy[2] ) {
                             currentAccuracy[0] = (Double)result[0];
                             currentAccuracy[1] = (Double)result[1];
                             currentAccuracy[2] = (Double)result[2];
-                            currentSDFG = neighbourSDFG;
                             staProcess = (SubtraceAbstraction) result[3];
+                            currentBPMN = (BPMNDiagram) result[4];
+                            currentSDFG = neighbourSDFG;
                             improved = true;
                             icounter = 0;
                         }
@@ -200,49 +207,46 @@ public class IteratedLocalSearch implements Metaheuristics {
  */
                 if( !improved && ++icounter == order) {
                     icounter = 0;
-                    restart(slog, order);
+                    while( !perturb(slog, order) );
                 }
 
             } catch (Exception e) {
                 System.out.println("ERROR - I got tangled in the threads.");
-//                e.printStackTrace();
-                restart(slog, order);
+                e.printStackTrace();
+                while( !perturb(slog, order) );
             }
         }
 
         for(int i=0; i<hits.size(); i++)
             writer.println(hits.get(i) + ",-,-," + bestScores.get(i) + ",-");
+        writer.close();
 
         System.out.println("eTIME - " + (double)(System.currentTimeMillis() - eTime)/1000.0+ "s");
-        System.out.println("STATS - total restarts: " + restarts);
+        System.out.println("STATS - total perturbations: " + perturbations);
 
-        writer.close();
-//        an exception here is impossible.
-        try { return minerProxy.getBPMN(bestSDFG); }
-        catch(Exception e) { return null; }
+        return bestBPMN;
     }
 
 
-    private void restart(SimpleLog slog, int order) {
+    private boolean perturb(SimpleLog slog, int order) {
         Evaluator evaluator;
-        ExecutorService executor = null;
-        Future<Object[]> evalResult = null;
+        ExecutorService executor;
+        Future<Object[]> evalResult;
         BPMNDiagram tmpBPMN;
         Object[] result;
-
+        SimpleDirectlyFollowGraph sdfg;
+        SimpleDirectlyFollowGraph.PERTYPE pertype;
 
         try {
-            restarts++;
+            perturbations++;
 
-            if(PERTURBATION) {
-                if(currentSDFG == null) return;
-                currentSDFG.perturb(PERTURBATION_STRENGTH);
-            } else {
-                currentSDFG = minerProxy.restart(slog);
-                if(currentSDFG == null) return;
-            }
+//            sdfg = new SimpleDirectlyFollowGraph(currentSDFG);
+//            pertype = currentAccuracy[0] > currentAccuracy[1] ? SimpleDirectlyFollowGraph.PERTYPE.PREC : SimpleDirectlyFollowGraph.PERTYPE.FIT;
+//            sdfg.perturb(PERTURBATION_STRENGTH, pertype);
 
-            tmpBPMN = minerProxy.getBPMN(currentSDFG);
+            sdfg = minerProxy.perturb(slog, currentSDFG);
+
+            tmpBPMN = minerProxy.getBPMN(sdfg);
             evaluator = new Evaluator(staLog, slog, minerProxy, tmpBPMN, order);
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(evaluator);
@@ -254,17 +258,21 @@ public class IteratedLocalSearch implements Metaheuristics {
                 currentAccuracy[1] = (Double)result[1];
                 currentAccuracy[2] = (Double)result[2];
                 staProcess = (SubtraceAbstraction) result[3];
-                System.out.println("RESTART - done.");
+                currentBPMN = (BPMNDiagram) result[4];
+                currentSDFG = sdfg;
+                System.out.println("PERTURBATION - done.");
+                writer.println("x,x,x,x,x");
+                executor.shutdownNow();
+                return true;
             } else {
-                System.out.println("TIMEOUT - restart failed.");
+                System.out.println("TIMEOUT - perturb failed.");
                 evalResult.cancel(true);
                 executor.shutdownNow();
-                restart(slog, order);
+                return false;
             }
         } catch (Exception e) {
-            System.out.println("WARNING - restart failed.");
-//            e.printStackTrace();
-            restart(slog, order);
+            System.out.println("EXCEPTION - perturb failed.");
+            return false;
         }
     }
 

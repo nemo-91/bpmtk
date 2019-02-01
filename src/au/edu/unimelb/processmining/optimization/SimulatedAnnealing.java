@@ -7,7 +7,7 @@ import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 
 public class SimulatedAnnealing implements Metaheuristics {
 
-    public BPMNDiagram searchOptimalSolution(SimpleLog slog, int order, int maxit, int neighbourhood, int timeout) {
+    public BPMNDiagram searchOptimalSolution(SimpleLog slog, int order, int maxit, int neighbourhood, int timeout, String name) {
         return null;
     }
 }
