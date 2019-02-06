@@ -42,7 +42,7 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
         this.tabu = new HashSet<>(sdfg.tabu);
     }
 
-    public SimpleDirectlyFollowGraph(DirectlyFollowGraphPlus directlyFollowGraphPlus) {
+    public SimpleDirectlyFollowGraph(DirectlyFollowGraphPlus directlyFollowGraphPlus, boolean tabuSearch) {
         this.parallelisms = directlyFollowGraphPlus.getParallelisms();
         this.loopsL1 = directlyFollowGraphPlus.getLoopsL1();
         this.startcode = directlyFollowGraphPlus.getStartcode();
@@ -73,7 +73,7 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
             incomings[tgt]++;
 
             dfg.set(src*size + tgt);
-//            tabu.add(src*size + tgt);
+            if(tabuSearch) tabu.add(src*size + tgt);
         }
     }
 

@@ -20,11 +20,11 @@ public class SplitMinerHPO {
 
     private static int MKO = 5;
 
-    private static double p_STEP = 0.10D;
+    private static double p_STEP = 0.01D;
     private static double p_MIN = 0.00D;
     private static double p_MAX = 1.05D;
 
-    private static double f_STEP = 0.10D;
+    private static double f_STEP = 0.01D;
     private static double f_MIN = 0.10D;
     private static double f_MAX = 1.05D;
 
@@ -90,7 +90,6 @@ public class SplitMinerHPO {
 
                     eTime = System.currentTimeMillis();
                     bpmn = yam.mineBPMNModel(slog, new XEventNameClassifier(), f_threshold, p_threshold, DFGPUIResult.FilterType.WTH, false, true, false, SplitMinerUIResult.StructuringTime.NONE);
-                    eTime = System.currentTimeMillis() - eTime;
 
                     staProcess = SubtraceAbstraction.abstractProcessBehaviour(bpmn, MKO, slog);
                     fit = staLog.minus(staProcess);
@@ -104,7 +103,8 @@ public class SplitMinerHPO {
                     score = (fit * prec * 2) / (fit + prec);
                     if( score.isNaN() ) score = -1.0;
 
-                    combination = f_threshold + "," + p_threshold + "," + fit + "," + prec + "," + score + "," + size + "," + cfc + "," + struct + "," + (eTime/1000);
+                    eTime = System.currentTimeMillis() - eTime;
+                    combination = f_threshold + "," + p_threshold + "," + fit + "," + prec + "," + score + "," + size + "," + cfc + "," + struct + "," + ((double)eTime/1000.0);
                     writer.println(combination);
                     writer.flush();
 
@@ -124,7 +124,7 @@ public class SplitMinerHPO {
             f_threshold += f_STEP;
         } while( f_threshold <= f_MAX );
 
-        writer.println("-,-," + bestAccuracy[0] + "," + bestAccuracy[1] + "," + bestAccuracy[2] + "-,-,-," + (System.currentTimeMillis() - teTime)/1000);
+        writer.println("-,-," + bestAccuracy[0] + "," + bestAccuracy[1] + "," + bestAccuracy[2] + ",-,-,-," + (double)(System.currentTimeMillis() - teTime)/1000.0);
         writer.flush();
         writer.close();
         AutomatedProcessDiscoveryOptimizer.exportBPMN(bestBPMN, ".\\smhpo_" + lName + "_best.bpmn");

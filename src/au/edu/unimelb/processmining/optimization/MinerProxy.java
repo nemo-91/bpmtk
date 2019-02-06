@@ -89,7 +89,21 @@ public class MinerProxy {
                 param = restartParams.remove(0);
                 dfgp = new DirectlyFollowGraphPlus(slog, param.getParam(0),  param.getParam(1), DFGPUIResult.FilterType.WTH, false);
                 dfgp.buildDFGP();
-                return new SimpleDirectlyFollowGraph(dfgp);
+                return new SimpleDirectlyFollowGraph(dfgp, false);
+            default:
+                return null;
+        }
+    }
+
+    public SimpleDirectlyFollowGraph tabuStart(SimpleLog slog) {
+        DirectlyFollowGraphPlus dfgp;
+        Params param;
+
+        switch( tag ) {
+            case SM:
+                dfgp = new DirectlyFollowGraphPlus(slog, 1.0,  0.5, DFGPUIResult.FilterType.WTH, false);
+                dfgp.buildDFGP();
+                return new SimpleDirectlyFollowGraph(dfgp, true);
             default:
                 return null;
         }

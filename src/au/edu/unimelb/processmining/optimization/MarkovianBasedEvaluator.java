@@ -6,7 +6,7 @@ import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 
 import java.util.concurrent.Callable;
 
-public class Evaluator implements Callable<Object[]> {
+public class MarkovianBasedEvaluator implements Callable<Object[]> {
 
     private SimpleLog slog;
     private SubtraceAbstraction staLog;
@@ -15,7 +15,7 @@ public class Evaluator implements Callable<Object[]> {
 //    private SimpleDirectlyFollowGraph sdfg;
     private int order;
 
-    public Evaluator(SubtraceAbstraction staLog, SimpleLog slog, MinerProxy minerProxy, BPMNDiagram bpmn, int order) {
+    public MarkovianBasedEvaluator(SubtraceAbstraction staLog, SimpleLog slog, MinerProxy minerProxy, BPMNDiagram bpmn, int order) {
         this.staLog = staLog;
         this.proxy = minerProxy;
         this.bpmn = bpmn;
@@ -49,8 +49,5 @@ public class Evaluator implements Callable<Object[]> {
 //        System.out.println("INFO - thread done, accuracy: [" + results[0] + "," + results[1] + "," + results[2] + "]");
         return results;
     }
-
-
-
 
 }

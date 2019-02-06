@@ -22,7 +22,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
     private SimpleDirectlyFollowGraph bestSDFG;
 
     private ArrayList<Double> bestScores;
-    private ArrayList<Integer> hits = new ArrayList<>();
+    private ArrayList<Integer> hits;
     Double[] currentAccuracy = new Double[3];
 
     private SubtraceAbstraction staLog;
@@ -45,7 +45,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
         staLog = LogAbstraction.subtrace(slog, order);
 
         ExecutorService multiThreadService;
-        Evaluator evalThread;
+        MarkovianBasedEvaluator evalThread;
         Future<Object[]> evalResult;
         Map<SimpleDirectlyFollowGraph, Future<Object[]>> neighboursEvaluations = new HashMap<>();
         String subtrace;
@@ -55,6 +55,8 @@ public class RepeatedLocalSearch implements Metaheuristics {
         SimpleDirectlyFollowGraph tmpSDFG;
         BPMNDiagram tmpBPMN;
 
+        hits = new ArrayList<>();
+        bestScores = new ArrayList<>();
 
         writer = null;
         try {
@@ -66,7 +68,6 @@ public class RepeatedLocalSearch implements Metaheuristics {
         long iTime = System.currentTimeMillis();
 
         restart(slog, order);
-        bestScores = new ArrayList<>();
         bestScores.add(currentAccuracy[2]);
         hits.add(iterations);
         bestSDFG = currentSDFG;
@@ -146,7 +147,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                 for( SimpleDirectlyFollowGraph neighbourSDFG : neighbours ) {
                     try { tmpBPMN = minerProxy.getBPMN(neighbourSDFG); }
                     catch(Exception e) { System.out.println("WARNING - discarded one neighbour."); continue; }
-                    evalThread = new Evaluator(staLog, slog, minerProxy, tmpBPMN, order);
+                    evalThread = new MarkovianBasedEvaluator(staLog, slog, minerProxy, tmpBPMN, order);
                     evalResult = multiThreadService.submit(evalThread);
                     neighboursEvaluations.put(neighbourSDFG, evalResult);
 //                    System.out.println("INFO - exploring 1 neighbour.");
@@ -201,11 +202,19 @@ public class RepeatedLocalSearch implements Metaheuristics {
             }
         }
 
-        for(int i=0; i<hits.size(); i++)
-            writer.println(hits.get(i) + ",-,-," + bestScores.get(i) + ",-");
+        eTime = System.currentTimeMillis() - eTime;
+        String hitrow = "";
+        String fscorerow = "";
+        for(int i=0; i<hits.size(); i++) {
+            hitrow +=  hits.get(i) + ",";
+            fscorerow += bestScores.get(i) + ",";
+        }
+
+        writer.println(hitrow + (double)(eTime)/1000.0);
+        writer.println(fscorerow + (double)(eTime)/1000.0);
         writer.close();
 
-        System.out.println("eTIME - " + (double)(System.currentTimeMillis() - eTime)/1000.0+ "s");
+        System.out.println("eTIME - " + (double)(eTime)/1000.0+ "s");
         System.out.println("STATS - total restarts: " + restarts);
 
         return bestBPMN;
@@ -213,7 +222,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
 
 
     private void restart(SimpleLog slog, int order) {
-        Evaluator evaluator;
+        MarkovianBasedEvaluator markovianBasedEvaluator;
         ExecutorService executor = null;
         Future<Object[]> evalResult;
         BPMNDiagram tmpBPMN;
@@ -226,9 +235,9 @@ public class RepeatedLocalSearch implements Metaheuristics {
             if(currentSDFG == null) return;
 
             tmpBPMN = minerProxy.getBPMN(currentSDFG);
-            evaluator = new Evaluator(staLog, slog, minerProxy, tmpBPMN, order);
+            markovianBasedEvaluator = new MarkovianBasedEvaluator(staLog, slog, minerProxy, tmpBPMN, order);
             executor = Executors.newSingleThreadExecutor();
-            evalResult = executor.submit(evaluator);
+            evalResult = executor.submit(markovianBasedEvaluator);
 
             sleep(2500);
             if( evalResult.isDone() ) {
@@ -254,6 +263,5 @@ public class RepeatedLocalSearch implements Metaheuristics {
             restart(slog, order);
         }
     }
-
 
 }
