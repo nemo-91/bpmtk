@@ -77,6 +77,9 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
         }
     }
 
+    public Set<Integer> getTabuSet() { return this.tabu; }
+    public void setTabuSet(Set<Integer> tabu) { this.tabu = new HashSet<>(tabu); }
+
     public void setParallelisms(Map<Integer, HashSet<Integer>> parallelisms) { this.parallelisms = parallelisms; }
 
     @Override

@@ -97,13 +97,22 @@ public class MinerProxy {
 
     public SimpleDirectlyFollowGraph tabuStart(SimpleLog slog) {
         DirectlyFollowGraphPlus dfgp;
+        SimpleDirectlyFollowGraph sdfg1;
+        SimpleDirectlyFollowGraph sdfg2;
         Params param;
 
         switch( tag ) {
             case SM:
-                dfgp = new DirectlyFollowGraphPlus(slog, 1.0,  0.5, DFGPUIResult.FilterType.WTH, false);
+                dfgp = new DirectlyFollowGraphPlus(slog, 1.0,  1.0, DFGPUIResult.FilterType.WTH, true);
                 dfgp.buildDFGP();
-                return new SimpleDirectlyFollowGraph(dfgp, true);
+                sdfg1 = new SimpleDirectlyFollowGraph(dfgp, true);
+//                this is the default param
+                param = restartParams.remove(0);
+                dfgp = new DirectlyFollowGraphPlus(slog, param.getParam(0),  param.getParam(1), DFGPUIResult.FilterType.WTH, false);
+                dfgp.buildDFGP();
+                sdfg2 = new SimpleDirectlyFollowGraph(dfgp, false);
+                sdfg2.setTabuSet(sdfg1.getTabuSet());
+                return sdfg2;
             default:
                 return null;
         }

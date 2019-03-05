@@ -41,9 +41,13 @@ public class MarkovianBasedEvaluator implements Callable<Object[]> {
             results[3] = staProcess;
             results[4] = this.bpmn;
         } catch(Exception e) {
-            results[0] = results[1] = results[2] = 0.0;
+            results[0] = results[1] = results[2] = new Double(0.0);
+            results[3] = null;
+            results[4] = this.bpmn;
         } catch(Error e) {
-            results[0] = results[1] = results[2] = 0.0;
+            results[0] = results[1] = results[2] = new Double(0.0);
+            results[3] = null;
+            results[4] = this.bpmn;
         }
 
 //        System.out.println("INFO - thread done, accuracy: [" + results[0] + "," + results[1] + "," + results[2] + "]");

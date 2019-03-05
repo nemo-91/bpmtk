@@ -1,8 +1,12 @@
 package au.edu.unimelb.services;
 
+import au.edu.qut.bpmn.io.BPMNDiagramImporter;
+import au.edu.qut.bpmn.io.impl.BPMNDiagramImporterImpl;
+import au.edu.qut.bpmn.metrics.ComplexityCalculator;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator.Opd;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator.Abs;
+import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 
 
 import java.io.File;
@@ -253,7 +257,7 @@ public class Testing {
         int order;
 //        switch this flag to get either fitness or precision or fscore (i.e. all of them)
         boolean fscore = true;
-        boolean petrinet = false;
+        boolean petrinet = true;
         String print;
 
         long eTime = System.currentTimeMillis();
@@ -302,6 +306,48 @@ public class Testing {
         }
 
         System.out.println("INFO - total testing time: " + (System.currentTimeMillis() - eTime));
+        writer.close();
+    }
+
+
+    public static void complexityOnRealModelsSet(String modelsDir) {
+        BPMNDiagramImporter bpmnImporter = new BPMNDiagramImporterImpl();
+        ComplexityCalculator complexityCalculator = new ComplexityCalculator();
+        String modelPath;
+        BPMNDiagram bpmn;
+        PrintWriter writer;
+
+        String size;
+        String cfc;
+        String struct;
+
+        try {
+            writer = new PrintWriter(".\\complexity_" + System.currentTimeMillis() + ".csv");
+            writer.println("model,size,cfc,struct.");
+        } catch(Exception e) {
+            System.out.println("ERROR - impossible to print the markovian the results.");
+            writer = new PrintWriter(System.out);
+        }
+
+        for(int i = 1; i<13; i++) {
+            modelPath = modelsDir + i + "_best.bpmn";
+            if( modelPath.contains("PRT") && (i==5 || i==8 || i>10) ) continue;
+
+            try {
+                bpmn = bpmnImporter.importBPMNDiagram(modelPath);
+                complexityCalculator.setBPMN(bpmn);
+                size = complexityCalculator.computeSize();
+                cfc = complexityCalculator.computeCFC();
+                struct = complexityCalculator.computeStructuredness();
+
+                writer.println(modelPath + "," + size + "," + cfc + "," + struct);
+                writer.flush();
+            } catch (Exception e) {
+                System.out.println("ERROR - something when wrong with process: " + modelPath);
+                e.printStackTrace();
+                continue;
+            }
+        }
         writer.close();
     }
 

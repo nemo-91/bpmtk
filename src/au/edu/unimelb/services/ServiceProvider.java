@@ -26,7 +26,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, BPM19, SMHPO}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, BPM19, SMHPO, COMPX}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -93,6 +93,9 @@ public class ServiceProvider {
                 break;
             case SMHPO:
                 testProvider.SMHPO(fargs[0]);
+                break;
+            case COMPX:
+                Testing.complexityOnRealModelsSet(fargs[0]);
                 break;
         }
     }
@@ -161,7 +164,11 @@ public class ServiceProvider {
 
             SplitMiner yam = new SplitMiner();
             XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
+            long etime = System.currentTimeMillis();
             BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), true, true, SplitMinerUIResult.StructuringTime.NONE);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
 
             BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
             UIContext context = new UIContext();

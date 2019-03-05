@@ -16,7 +16,7 @@ import java.io.File;
 public class AutomatedProcessDiscoveryOptimizer {
 
     private static int MAXIT = 50;
-    private static int N = 5;
+    private static int NEIGHBOURHOOD = 5;
     private static int TIMEOUT = 300000;
 
     public enum MetaOpt {RLS, TS, SA, ILS}
@@ -60,17 +60,19 @@ public class AutomatedProcessDiscoveryOptimizer {
         switch(metaheuristics) {
             case RLS:
                 explorer = new RepeatedLocalSearch(minerProxy);
-                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, N, TIMEOUT, modelName);
+                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, NEIGHBOURHOOD, TIMEOUT, modelName);
                 break;
             case ILS:
                 explorer = new IteratedLocalSearch(minerProxy);
-                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, N, TIMEOUT, modelName);
+                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, NEIGHBOURHOOD, TIMEOUT, modelName);
                 break;
             case TS:
-                explorer = new TabuSearch();
+                explorer = new TabuSearch(minerProxy);
+                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, NEIGHBOURHOOD, TIMEOUT, modelName);
                 break;
             case SA:
-                explorer = new SimulatedAnnealing();
+                explorer = new SimulatedAnnealing(minerProxy);
+                bpmn = explorer.searchOptimalSolution(slog, order, MAXIT, NEIGHBOURHOOD, TIMEOUT, modelName);
                 break;
         }
 

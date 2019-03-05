@@ -71,21 +71,7 @@ public class IteratedLocalSearch implements Metaheuristics {
         long eTime = System.currentTimeMillis();
         long iTime = System.currentTimeMillis();
 
-        while( true ) {
-            try {
-                currentSDFG = minerProxy.restart(slog);
-                currentBPMN = minerProxy.getBPMN(currentSDFG);
-                staProcess = SubtraceAbstraction.abstractProcessBehaviour(currentBPMN, order, slog);
-                currentAccuracy[0] = staLog.minus(staProcess);
-                currentAccuracy[1] = staProcess.minus(staLog);
-                currentAccuracy[2] = (2.0 * currentAccuracy[0] * currentAccuracy[1]) / (currentAccuracy[0] + currentAccuracy[1]);
-                break;
-            } catch(Exception e) {
-                System.out.println("ERROR - impossible to generate the initial bpmn.");
-                continue;
-            }
-        }
-
+        start(slog, order);
         bestScores.add(currentAccuracy[2]);
         hits.add(iterations);
         bestSDFG = currentSDFG;
@@ -172,12 +158,9 @@ public class IteratedLocalSearch implements Metaheuristics {
                 sleep(2500);
 
                 improved = false;
-                int done = 0;
-                int cancelled = 0;
                 for( SimpleDirectlyFollowGraph neighbourSDFG : neighboursEvaluations.keySet() ) {
                     evalResult = neighboursEvaluations.get(neighbourSDFG);
                     if( evalResult.isDone() ) {
-                        done++;
                         result = evalResult.get();
                         if( (Double)result[2] >= currentAccuracy[2] ) {
                             currentAccuracy[0] = (Double)result[0];
@@ -190,13 +173,9 @@ public class IteratedLocalSearch implements Metaheuristics {
                             icounter = 0;
                         }
                     } else {
-                        cancelled++;
                         evalResult.cancel(true);
                     }
                 }
-
-//                System.out.println("DONE - " + done);
-//                System.out.println("CANCELLED - " + cancelled);
 
                 neighbours.clear();
                 neighboursEvaluations.clear();
@@ -235,6 +214,38 @@ public class IteratedLocalSearch implements Metaheuristics {
         return bestBPMN;
     }
 
+    private void start(SimpleLog slog, int order) {
+        MarkovianBasedEvaluator markovianBasedEvaluator;
+        ExecutorService executor = null;
+        Future<Object[]> evalResult;
+        BPMNDiagram tmpBPMN;
+        Object[] result;
+
+        try {
+            currentSDFG = minerProxy.restart(slog);
+            if(currentSDFG == null) return;
+
+            tmpBPMN = minerProxy.getBPMN(currentSDFG);
+            markovianBasedEvaluator = new MarkovianBasedEvaluator(staLog, slog, minerProxy, tmpBPMN, order);
+            executor = Executors.newSingleThreadExecutor();
+            evalResult = executor.submit(markovianBasedEvaluator);
+
+            result = evalResult.get(5000, TimeUnit.MILLISECONDS);
+            currentAccuracy[0] = (Double)result[0];
+            currentAccuracy[1] = (Double)result[1];
+            currentAccuracy[2] = (Double)result[2];
+            staProcess = (SubtraceAbstraction) result[3];
+            currentBPMN = (BPMNDiagram) result[4];
+            executor.shutdownNow();
+            System.out.println("START - done.");
+
+        } catch (Exception e) {
+            System.out.println("ERROR - start failed.");
+            e.printStackTrace();
+            if(executor != null) executor.shutdownNow();
+            start(slog, order);
+        }
+    }
 
     private boolean perturb(SimpleLog slog, int order) {
         MarkovianBasedEvaluator markovianBasedEvaluator;
@@ -269,7 +280,7 @@ public class IteratedLocalSearch implements Metaheuristics {
                 currentBPMN = (BPMNDiagram) result[4];
                 currentSDFG = sdfg;
                 System.out.println("PERTURBATION - done.");
-                writer.println("x,x,x,x,x");
+                writer.println("p,p,p,p,p");
                 executor.shutdownNow();
                 return true;
             } else {

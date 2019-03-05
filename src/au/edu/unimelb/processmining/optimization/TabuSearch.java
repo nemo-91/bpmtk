@@ -1,7 +1,6 @@
 package au.edu.unimelb.processmining.optimization;
 
 import au.edu.qut.processmining.log.SimpleLog;
-import au.edu.qut.processmining.miners.splitminer.dfgp.DirectlyFollowGraphPlus;
 import au.edu.unimelb.processmining.accuracy.abstraction.LogAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
@@ -11,6 +10,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.Thread.sleep;
 
@@ -31,7 +31,13 @@ public class TabuSearch implements Metaheuristics {
     private SubtraceAbstraction staProcess;
 
     private PrintWriter writer;
-    private int restarts;
+    private int tabuizations;
+
+    private Set<SimpleDirectlyFollowGraph> tabu;
+    private ArrayList<SimpleDirectlyFollowGraph> visitableSDFG;
+    private ArrayList<SubtraceAbstraction> visitableSTAprocess;
+    private ArrayList<SimpleDirectlyFollowGraph> backupSDFG;
+    private ArrayList<SubtraceAbstraction> backupSTAprocess;
 
     public TabuSearch(MinerProxy proxy) {
         minerProxy = proxy;
@@ -41,9 +47,17 @@ public class TabuSearch implements Metaheuristics {
         int iterations = 0;
         int icounter = 0;
         boolean improved;
+        int tabucounter;
         boolean export = false;
 
-        restarts = 0;
+        tabuizations = 0;
+        tabu = new HashSet<>();
+
+        visitableSDFG = new ArrayList<>();
+        visitableSTAprocess = new ArrayList<>();
+
+        backupSDFG = new ArrayList<>();
+        backupSTAprocess = new ArrayList<>();
         staLog = LogAbstraction.subtrace(slog, order);
 
         ExecutorService multiThreadService;
@@ -66,10 +80,12 @@ public class TabuSearch implements Metaheuristics {
             writer.println("iteration,fitness,precision,fscore,itime");
         } catch(Exception e) { System.out.println("ERROR - impossible to print the markovian abstraction."); }
 
+        System.out.println("INFO - tabu search starting...");
+
         long eTime = System.currentTimeMillis();
         long iTime = System.currentTimeMillis();
 
-        restart(slog, order);
+        start(slog, order);
         bestScores.add(currentAccuracy[2]);
         hits.add(iterations);
         bestSDFG = currentSDFG;
@@ -84,15 +100,16 @@ public class TabuSearch implements Metaheuristics {
                     hits.add(iterations);
                     bestSDFG = currentSDFG;
                     bestBPMN = currentBPMN;
+//                    visitableSDFG.add(0, currentSDFG);
+//                    visitableSTAprocess.add(0, staProcess);
                 }
 
                 iTime = System.currentTimeMillis() - iTime;
-                if(export) AutomatedProcessDiscoveryOptimizer.exportBPMN(currentBPMN, ".\\rls_" + modelName + "_" + iterations + ".bpmn");
+                if(export) AutomatedProcessDiscoveryOptimizer.exportBPMN(currentBPMN, ".\\tabu_" + modelName + "_" + iterations + ".bpmn");
                 writer.println(iterations + "," + currentAccuracy[0] + "," + currentAccuracy[1] + "," + currentAccuracy[2] + "," + iTime);
                 writer.flush();
                 iterations++;
                 iTime = System.currentTimeMillis();
-
 
                 if( currentAccuracy[1] > currentAccuracy[0] ) {
 /**     if precision is higher than fitness, we explore the DFGs having more edges.
@@ -109,7 +126,7 @@ public class TabuSearch implements Metaheuristics {
                         if( subtrace.isEmpty() && (subtrace = staLog.nextMismatch()) == null ) break;
 
                         if( (subtrace = tmpSDFG.enhance(subtrace, 1)) == null ) subtrace = staLog.nextMismatch();
-                        else {
+                        else if(!tabu.contains(tmpSDFG)) {
                             neighbours.add(tmpSDFG);
                             tmpSDFG = new SimpleDirectlyFollowGraph(currentSDFG);
                         }
@@ -130,7 +147,7 @@ public class TabuSearch implements Metaheuristics {
                         if( subtrace.isEmpty() && (subtrace = staProcess.nextMismatch()) == null ) break;
 
                         if( (subtrace = tmpSDFG.reduce(subtrace, 1)) == null ) subtrace = staProcess.nextMismatch();
-                        else {
+                        else if(!tabu.contains(tmpSDFG)) {
                             neighbours.add(tmpSDFG);
                             tmpSDFG = new SimpleDirectlyFollowGraph(currentSDFG);
                         }
@@ -141,7 +158,7 @@ public class TabuSearch implements Metaheuristics {
 
                 if( neighbours.isEmpty() ) {
                     System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
-                    restart(slog, order);
+                    tabuize(slog, order);
                     continue;
                 }
 
@@ -159,14 +176,18 @@ public class TabuSearch implements Metaheuristics {
                 sleep(2500);
 
                 improved = false;
-                int done = 0;
-                int cancelled = 0;
+                tabucounter = 0;
                 for( SimpleDirectlyFollowGraph neighbourSDFG : neighboursEvaluations.keySet() ) {
                     evalResult = neighboursEvaluations.get(neighbourSDFG);
                     if( evalResult.isDone() ) {
-                        done++;
                         result = evalResult.get();
-                        if( (Double)result[2] >= currentAccuracy[2] ) {
+
+                        if( (Double)result[2] == currentAccuracy[2] ) {
+                            tabucounter++;
+                            visitableSTAprocess.add(0, (SubtraceAbstraction) result[3]);
+                            visitableSDFG.add(0, neighbourSDFG);
+
+                        } else if( (Double)result[2] > currentAccuracy[2] ) {
                             currentAccuracy[0] = (Double)result[0];
                             currentAccuracy[1] = (Double)result[1];
                             currentAccuracy[2] = (Double)result[2];
@@ -174,16 +195,18 @@ public class TabuSearch implements Metaheuristics {
                             currentBPMN = (BPMNDiagram) result[4];
                             currentSDFG = neighbourSDFG;
                             improved = true;
+                            tabucounter = 0;
+                            visitableSTAprocess.add(0, staProcess);
+                            visitableSDFG.add(0, neighbourSDFG);
                             icounter = 0;
+                        } else {
+//                            backupSTAprocess.add(0, (SubtraceAbstraction) result[3]);
+//                            backupSDFG.add(0, neighbourSDFG);
+                            tabu.add(neighbourSDFG);
                         }
-                    } else {
-                        cancelled++;
-                        evalResult.cancel(true);
-                    }
-                }
 
-//                System.out.println("DONE - " + done);
-//                System.out.println("CANCELLED - " + cancelled);
+                    } else evalResult.cancel(true);
+                }
 
                 neighbours.clear();
                 neighboursEvaluations.clear();
@@ -192,15 +215,20 @@ public class TabuSearch implements Metaheuristics {
 /**     once we checked all the neighbours accuracies, we select the one improving the current state or none at all.
  *      if the one improving the current state, also improves the global maximum, we update that.
  */
+                if( improved ) {
+                    visitableSDFG.remove(tabucounter);
+                    visitableSTAprocess.remove(tabucounter);
+                }
+
                 if( !improved && ++icounter == order) {
                     icounter = 0;
-                    restart(slog, order);
+                    tabuize(slog, order);
                 }
 
             } catch (Exception e) {
                 System.out.println("ERROR - I got tangled in the threads.");
                 e.printStackTrace();
-                restart(slog, order);
+                tabuize(slog, order);
             }
         }
 
@@ -217,22 +245,21 @@ public class TabuSearch implements Metaheuristics {
         writer.close();
 
         System.out.println("eTIME - " + (double)(eTime)/1000.0+ "s");
-        System.out.println("STATS - total restarts: " + restarts);
+        System.out.println("STATS - total tabuizations: " + tabuizations);
 
         return bestBPMN;
     }
 
 
-    private void restart(SimpleLog slog, int order) {
+    private void start(SimpleLog slog, int order) {
         MarkovianBasedEvaluator markovianBasedEvaluator;
         ExecutorService executor = null;
         Future<Object[]> evalResult;
         BPMNDiagram tmpBPMN;
         Object[] result;
 
-
         try {
-            restarts++;
+//            currentSDFG = minerProxy.tabuStart(slog);
             currentSDFG = minerProxy.restart(slog);
             if(currentSDFG == null) return;
 
@@ -241,28 +268,44 @@ public class TabuSearch implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            sleep(2500);
-            if( evalResult.isDone() ) {
-                result = evalResult.get();
-                currentAccuracy[0] = (Double)result[0];
-                currentAccuracy[1] = (Double)result[1];
-                currentAccuracy[2] = (Double)result[2];
-                staProcess = (SubtraceAbstraction) result[3];
-                currentBPMN = (BPMNDiagram) result[4];
-                executor.shutdownNow();
-                System.out.println("RESTART - done.");
-                writer.println("x,x,x,x,x");
-            } else {
-                System.out.println("TIMEOUT - restart failed.");
-                evalResult.cancel(true);
-                executor.shutdownNow();
-                restart(slog, order);
-            }
+            result = evalResult.get(5000, TimeUnit.MILLISECONDS);
+            currentAccuracy[0] = (Double)result[0];
+            currentAccuracy[1] = (Double)result[1];
+            currentAccuracy[2] = (Double)result[2];
+            staProcess = (SubtraceAbstraction) result[3];
+            currentBPMN = (BPMNDiagram) result[4];
+            executor.shutdownNow();
+//            System.out.println("START - tabu done.");
+            writer.println("r,r,r,r,r");
+
         } catch (Exception e) {
-            System.out.println("WARNING - restart failed.");
+            System.out.println("ERROR - tabu start failed.");
 //            e.printStackTrace();
             if(executor != null) executor.shutdownNow();
-            restart(slog, order);
+            start(slog, order);
+        }
+    }
+
+    private void tabuize(SimpleLog slog, int order) {
+        tabu.add(currentSDFG);
+
+        if(visitableSDFG.isEmpty()) {
+            if( !backupSDFG.isEmpty() ) {
+//            System.out.println("INFO - tabuization error.");
+                writer.println("tx,tx,tx,tx,tx");
+                System.out.println("tx,tx,tx,tx,tx");
+                currentSDFG = backupSDFG.remove(0);
+                staProcess = backupSTAprocess.remove(0);
+                tabuizations++;
+            }
+            else start(slog, order);
+        } else {
+            currentSDFG = visitableSDFG.remove(0);
+            staProcess = visitableSTAprocess.remove(0);
+            tabuizations++;
+            writer.println("t,t,t,t,t");
+            System.out.println("t,t,t,t,t");
+//        System.out.println("INFO - tabuization done.");
         }
     }
 }

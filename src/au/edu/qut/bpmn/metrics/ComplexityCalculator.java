@@ -329,6 +329,7 @@ public class ComplexityCalculator {
             structuredness = 1 - ((nodes - removed.size()) / nodes);
 
         } catch (Exception e) {
+            e.printStackTrace();
             return "n/a";
         }
 

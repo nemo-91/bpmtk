@@ -249,7 +249,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                 currentBPMN = (BPMNDiagram) result[4];
                 executor.shutdownNow();
                 System.out.println("RESTART - done.");
-                writer.println("x,x,x,x,x");
+                writer.println("r,r,r,r,r");
             } else {
                 System.out.println("TIMEOUT - restart failed.");
                 evalResult.cancel(true);
