@@ -1,0 +1,6 @@
+The source code stored in this repository relies on many libraries distributed either with L-GPL or GPL license.
+We acknowledge that many of these libraries come from the ProM tools (http://www.promtools.org),
+and we redistribute them under the GPL license.
+
+The whole source project is therefore distributed under the GPL license, a reference to the license can be found here: 
+https://www.gnu.org/licenses/gpl.html
