@@ -80,7 +80,7 @@ public class TabuSearch implements Metaheuristics {
             writer.println("iteration,fitness,precision,fscore,itime");
         } catch(Exception e) { System.out.println("ERROR - impossible to print the markovian abstraction."); }
 
-        System.out.println("INFO - tabu search starting...");
+//        System.out.println("INFO - tabu search starting...");
 
         long eTime = System.currentTimeMillis();
         long iTime = System.currentTimeMillis();
@@ -157,7 +157,7 @@ public class TabuSearch implements Metaheuristics {
 //                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
 
                 if( neighbours.isEmpty() ) {
-                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
+//                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
                     tabuize(slog, order);
                     continue;
                 }
@@ -245,7 +245,7 @@ public class TabuSearch implements Metaheuristics {
         writer.close();
 
         System.out.println("eTIME - " + (double)(eTime)/1000.0+ "s");
-        System.out.println("STATS - total tabuizations: " + tabuizations);
+//        System.out.println("STATS - total tabuizations: " + tabuizations);
 
         return bestBPMN;
     }
@@ -279,7 +279,7 @@ public class TabuSearch implements Metaheuristics {
             writer.println("r,r,r,r,r");
 
         } catch (Exception e) {
-            System.out.println("ERROR - tabu start failed.");
+//            System.out.println("ERROR - tabu start failed.");
 //            e.printStackTrace();
             if(executor != null) executor.shutdownNow();
             start(slog, order);
@@ -293,7 +293,7 @@ public class TabuSearch implements Metaheuristics {
             if( !backupSDFG.isEmpty() ) {
 //            System.out.println("INFO - tabuization error.");
                 writer.println("tx,tx,tx,tx,tx");
-                System.out.println("tx,tx,tx,tx,tx");
+//                System.out.println("tx,tx,tx,tx,tx");
                 currentSDFG = backupSDFG.remove(0);
                 staProcess = backupSTAprocess.remove(0);
                 tabuizations++;
@@ -304,7 +304,7 @@ public class TabuSearch implements Metaheuristics {
             staProcess = visitableSTAprocess.remove(0);
             tabuizations++;
             writer.println("t,t,t,t,t");
-            System.out.println("t,t,t,t,t");
+//            System.out.println("t,t,t,t,t");
 //        System.out.println("INFO - tabuization done.");
         }
     }

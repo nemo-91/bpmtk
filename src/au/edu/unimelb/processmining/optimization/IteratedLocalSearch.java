@@ -141,7 +141,7 @@ public class IteratedLocalSearch implements Metaheuristics {
 //                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
 
                 if( neighbours.isEmpty() ) {
-                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
+//                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
                     while( !perturb(slog, order) );
                     continue;
                 }
@@ -209,7 +209,7 @@ public class IteratedLocalSearch implements Metaheuristics {
         writer.close();
 
         System.out.println("eTIME - " + (double)(eTime)/1000.0+ "s");
-        System.out.println("STATS - total perturbations: " + perturbations);
+//        System.out.println("STATS - total perturbations: " + perturbations);
 
         return bestBPMN;
     }
@@ -237,10 +237,10 @@ public class IteratedLocalSearch implements Metaheuristics {
             staProcess = (SubtraceAbstraction) result[3];
             currentBPMN = (BPMNDiagram) result[4];
             executor.shutdownNow();
-            System.out.println("START - done.");
+//            System.out.println("START - done.");
 
         } catch (Exception e) {
-            System.out.println("ERROR - start failed.");
+//            System.out.println("ERROR - start failed.");
             e.printStackTrace();
             if(executor != null) executor.shutdownNow();
             start(slog, order);
@@ -279,18 +279,18 @@ public class IteratedLocalSearch implements Metaheuristics {
                 staProcess = (SubtraceAbstraction) result[3];
                 currentBPMN = (BPMNDiagram) result[4];
                 currentSDFG = sdfg;
-                System.out.println("PERTURBATION - done.");
+//                System.out.println("PERTURBATION - done.");
                 writer.println("p,p,p,p,p");
                 executor.shutdownNow();
                 return true;
             } else {
-                System.out.println("TIMEOUT - perturb failed.");
+//                System.out.println("TIMEOUT - perturb failed.");
                 evalResult.cancel(true);
                 executor.shutdownNow();
                 return false;
             }
         } catch (Exception e) {
-            System.out.println("EXCEPTION - perturb failed.");
+//            System.out.println("EXCEPTION - perturb failed.");
             return false;
         }
     }

@@ -146,7 +146,7 @@ public class SimulatedAnnealing implements Metaheuristics {
 //                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
 
                 if( neighbours.isEmpty() ) {
-                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
+//                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
                     restart(slog, order);
                     continue;
                 }
@@ -181,7 +181,7 @@ public class SimulatedAnnealing implements Metaheuristics {
                             exponent = (currentAccuracy[2] - (Double)result[2])/(maxTemperature - iterations);
                             probability = Math.exp(exponent);
                             if( probability > 0 ) {
-                                System.out.println("INFO - annealing with probability: " + probability);
+//                                System.out.println("INFO - annealing with probability: " + probability);
                                 currentAccuracy[0] = (Double)result[0];
                                 currentAccuracy[1] = (Double)result[1];
                                 currentAccuracy[2] = (Double)result[2];
@@ -228,7 +228,7 @@ public class SimulatedAnnealing implements Metaheuristics {
         writer.close();
 
         System.out.println("eTIME - " + (double)(eTime)/1000.0+ "s");
-        System.out.println("STATS - total restarts: " + restarts);
+//        System.out.println("STATS - total restarts: " + restarts);
 
         return bestBPMN;
     }
@@ -261,16 +261,16 @@ public class SimulatedAnnealing implements Metaheuristics {
                 staProcess = (SubtraceAbstraction) result[3];
                 currentBPMN = (BPMNDiagram) result[4];
                 executor.shutdownNow();
-                System.out.println("RESTART - done.");
+//                System.out.println("RESTART - done.");
                 writer.println("r,r,r,r,r");
             } else {
-                System.out.println("TIMEOUT - restart failed.");
+//                System.out.println("TIMEOUT - restart failed.");
                 evalResult.cancel(true);
                 executor.shutdownNow();
                 restart(slog, order);
             }
         } catch (Exception e) {
-            System.out.println("WARNING - restart failed.");
+//            System.out.println("WARNING - restart failed.");
 //            e.printStackTrace();
             if(executor != null) executor.shutdownNow();
             restart(slog, order);

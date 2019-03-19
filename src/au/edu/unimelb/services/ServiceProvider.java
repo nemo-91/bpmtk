@@ -26,7 +26,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, BPM19, SMHPO, COMPX}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -88,7 +88,7 @@ public class ServiceProvider {
             case OM:
                 testProvider.omegaMiner(fargs[0]);
                 break;
-            case BPM19:
+            case OPTF:
                 testProvider.APDO(fargs[0], fargs[1], fargs[2]);
                 break;
             case SMHPO:
