@@ -1,22 +1,23 @@
 package au.edu.unimelb.services;
 
 import au.edu.qut.processmining.log.LogParser;
+import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.omega.OmegaMiner;
 import au.edu.qut.processmining.miners.splitminer.SplitMiner;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
-import au.edu.unimelb.processmining.optimization.AutomatedProcessDiscoveryOptimizer;
-import au.edu.unimelb.processmining.optimization.MinerProxy;
-import au.edu.unimelb.processmining.optimization.SplitMinerHPO;
+import au.edu.unimelb.processmining.optimization.*;
 import com.raffaeleconforti.log.util.LogImporter;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.model.XLog;
 import org.processmining.contexts.uitopia.UIContext;
 import org.processmining.contexts.uitopia.UIPluginContext;
+import org.processmining.fodina.Fodina;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.plugins.bpmn.plugins.BpmnExportPlugin;
+import org.processmining.plugins.bpmnminer.types.MinerSettings;
 
 import java.io.File;
 
@@ -26,7 +27,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, ISL, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX}
+    public enum TEST_CODE {KEN, MAP, MAF, SMD, SMDX, ISL, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -73,6 +74,9 @@ public class ServiceProvider {
             case SMD:
                 testProvider.SplitMinerService(fargs);
                 break;
+            case SMDX:
+                testProvider.SplitMinerServiceX(fargs);
+                break;
             case ISL:
                 testProvider.importSimpleLog8020(fargs);
                 break;
@@ -89,13 +93,19 @@ public class ServiceProvider {
                 testProvider.omegaMiner(fargs[0]);
                 break;
             case OPTF:
-                testProvider.APDO(fargs[0], fargs[1], fargs[2]);
+                testProvider.APDO(fargs[0], fargs[1], fargs[2], fargs[3]);
                 break;
             case SMHPO:
                 testProvider.SMHPO(fargs[0]);
                 break;
+            case FOHPO:
+                testProvider.FOHPO(fargs[0]);
+                break;
             case COMPX:
                 Testing.complexityOnRealModelsSet(fargs[0]);
+                break;
+            case FOD:
+                testProvider.FodinaMinerService(fargs);
                 break;
         }
     }
@@ -105,8 +115,13 @@ public class ServiceProvider {
         smhpo.hyperparamEvaluation(logPath);
     }
 
-    public void APDO(String logPath, String order, String metaopt) {
-        AutomatedProcessDiscoveryOptimizer optimizer = new AutomatedProcessDiscoveryOptimizer(Integer.valueOf(order), AutomatedProcessDiscoveryOptimizer.MetaOpt.valueOf(metaopt), MinerProxy.MinerTAG.SM);
+    public void FOHPO(String logPath) {
+        FodinaHPO fohpo = new FodinaHPO();
+        fohpo.hyperparamEvaluation(logPath);
+    }
+
+    public void APDO(String logPath, String order, String metaopt, String miner) {
+        AutomatedProcessDiscoveryOptimizer optimizer = new AutomatedProcessDiscoveryOptimizer(Integer.valueOf(order), AutomatedProcessDiscoveryOptimizer.MetaOpt.valueOf(metaopt), MinerProxy.MinerTAG.valueOf(miner));
         optimizer.init(logPath);
         optimizer.searchOptimalBPMN();
     }
@@ -161,11 +176,12 @@ public class ServiceProvider {
         try {
             double epsilon = Double.valueOf(args[0]);
             double eta = Double.valueOf(args[1]);
+            boolean replaceIORs = Boolean.valueOf(args[2]);
 
             SplitMiner yam = new SplitMiner();
             XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
             long etime = System.currentTimeMillis();
-            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), true, true, SplitMinerUIResult.StructuringTime.NONE);
+            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, true, SplitMinerUIResult.StructuringTime.NONE);
             etime = System.currentTimeMillis() - etime;
 
             System.out.println("eTIME - " + (double)etime/1000.0 + "s");
@@ -174,6 +190,73 @@ public class ServiceProvider {
             UIContext context = new UIContext();
             UIPluginContext uiPluginContext = context.getMainPluginContext();
             bpmnExportPlugin.export(uiPluginContext, output, new File(args[4] + ".bpmn"));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR: wrong usage.");
+            System.out.println("RUN> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD e n p 'logpath\\log.[xes|xes.gz|mxml]' 'outputpath\\outputname' ");
+            System.out.println("PARAM: e = double in [0,1] : parallelism threshold (epsilon)");
+            System.out.println("PARAM: n = double in [0,1] : percentile for frequency threshold (eta)");
+            System.out.println("PARAM: p = [true|false] : parallelisms are discovered before loops");
+            System.out.println("EXAMPLE: java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD 0.1 0.4 .\\logs\\SEPSIS.xes.gz .\\outputs\\SEPSIS");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void FodinaMinerService(String[] args) {
+        try {
+            MinerSettings settings = new MinerSettings();
+            settings.dependencyThreshold = Double.valueOf(args[0]);
+            settings.l1lThreshold = Double.valueOf(args[1]);
+            settings.l2lThreshold = Double.valueOf(args[1]);
+
+            Fodina fodina = new Fodina();
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[2]);
+
+            long etime = System.currentTimeMillis();
+            BPMNDiagram output = fodina.discoverBPMNDiagram(LogParser.getSimpleLog(log, new XEventNameClassifier()), settings);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            bpmnExportPlugin.export(uiPluginContext, output, new File(args[3] + ".bpmn"));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR - fodina couldn't mine the process model.");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void SplitMinerServiceX(String[] args) {
+        try {
+            double epsilon = Double.valueOf(args[0]);
+            double eta = Double.valueOf(args[1]);
+            boolean replaceIORs = Boolean.valueOf(args[2]);
+
+            SplitMiner yam = new SplitMiner();
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
+            long etime = System.currentTimeMillis();
+            LogParser parser = new LogParser();
+            XEventNameClassifier classifier = new XEventNameClassifier();
+            SimpleLog slog = parser.getSimpleLog(log, classifier, Double.valueOf(args[4]));
+            BPMNDiagram output = yam.mineBPMNModel(slog, classifier, eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, false, SplitMinerUIResult.StructuringTime.NONE);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            String modelName = args[5]+"e"+epsilon+"-n"+eta+"-"+args[2].charAt(0)+"-"+Double.valueOf(args[4])+".bpmn";
+            bpmnExportPlugin.export(uiPluginContext, output, new File(modelName));
+
+
+            MarkovianAccuracyCalculator calculator = new MarkovianAccuracyCalculator();
+            calculator.accuracy(MarkovianAccuracyCalculator.Abs.STA, MarkovianAccuracyCalculator.Opd.SPL, args[3], modelName, 5);
             return;
         } catch (Throwable e) {
             System.out.println("ERROR: wrong usage.");

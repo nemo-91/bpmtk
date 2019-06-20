@@ -261,7 +261,7 @@ public class MarkovianAccuracyCalculator {
 
             return true;
         } catch (Exception e) {
-//            e.printStackTrace();
+            e.printStackTrace();
             System.out.println("ERROR - impossible to read the process file.");
             return false;
         }

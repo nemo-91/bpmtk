@@ -257,7 +257,7 @@ public class Testing {
         int order;
 //        switch this flag to get either fitness or precision or fscore (i.e. all of them)
         boolean fscore = true;
-        boolean petrinet = true;
+        boolean petrinet = false;
         String print;
 
         long eTime = System.currentTimeMillis();
@@ -330,7 +330,7 @@ public class Testing {
         }
 
         for(int i = 1; i<13; i++) {
-            modelPath = modelsDir + i + "_best.bpmn";
+            modelPath = modelsDir + i + ".bpmn";
             if( modelPath.contains("PRT") && (i==5 || i==8 || i>10) ) continue;
 
             try {

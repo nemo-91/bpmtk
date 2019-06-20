@@ -19,10 +19,11 @@ public class AutomatedProcessDiscoveryOptimizer {
     private static int NEIGHBOURHOOD = 5;
     private static int TIMEOUT = 300000;
 
-    public enum MetaOpt {RLS, TS, SA, ILS}
+    public enum MetaOpt {RLS, ILS, TS, SA}
     private MinerProxy minerProxy;
     private int order;
     private MetaOpt metaheuristics;
+    private MinerProxy.MinerTAG miner;
     private SimpleLog slog;
     private BPMNDiagram bpmn;
 
@@ -33,7 +34,7 @@ public class AutomatedProcessDiscoveryOptimizer {
     public AutomatedProcessDiscoveryOptimizer(int order, MetaOpt metaheuristics, MinerProxy.MinerTAG mtag) {
         this.order = order;
         this.metaheuristics = metaheuristics;
-        minerProxy = new MinerProxy(mtag);
+        this.miner = mtag;
     }
 
     public boolean init(String logPath) {
@@ -52,6 +53,7 @@ public class AutomatedProcessDiscoveryOptimizer {
             slog = null;
             return false;
         }
+        minerProxy = new MinerProxy(miner, slog);
         return true;
     }
 

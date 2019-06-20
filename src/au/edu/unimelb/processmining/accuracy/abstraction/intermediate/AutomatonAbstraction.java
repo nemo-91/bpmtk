@@ -137,10 +137,15 @@ public class AutomatonAbstraction {
                 label = automatonEIDs.get(aid);
                 i = label.indexOf("+");
                 if( i != -1 ) label = label.substring(0, i);
-                if( (lid = logEIDs.get(label)) == null ) idsMapping.put(aid, wid--);
+                if( (lid = logEIDs.get(label)) == null ) {
+//                    System.out.println("ERROR - foreigner activity: " + label);
+                    idsMapping.put(aid, wid--);
+                }
                 else idsMapping.put(aid, lid);
             }
         }
+
+        if(wid < -2) System.out.println("ERROR - foreigner activities found!");
     }
 
     private void populate(Automaton automaton,  Map<Integer, String> eNames) {

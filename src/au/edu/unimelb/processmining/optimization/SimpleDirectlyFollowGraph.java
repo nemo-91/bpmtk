@@ -1,5 +1,6 @@
 package au.edu.unimelb.processmining.optimization;
 
+import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.splitminer.dfgp.DFGEdge;
 import au.edu.qut.processmining.miners.splitminer.dfgp.DirectlyFollowGraphPlus;
@@ -42,6 +43,35 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
         this.tabu = new HashSet<>(sdfg.tabu);
     }
 
+    public SimpleDirectlyFollowGraph(BitSet matrixSDFG, SimpleLog slog, int size) {
+        this.parallelisms = new HashMap<>();
+        this.loopsL1 = new HashSet<>();
+        this.startcode = LogParser.STARTCODE;
+        this.endcode = LogParser.ENDCODE;
+        this.slog = slog;
+
+        this.size = size;
+        tabu = new HashSet<>();
+
+        outgoings = new Integer[size];
+        incomings = new Integer[size];
+        for(int i = 0; i<size; i++) outgoings[i] = incomings[i] = 0;
+
+//        this bit array represents a graph (the directly-follows)
+//        the cell (i,j) is set to TRUE if there exists an edge in the DFG with srcID = i and tgtID = j
+//        reminder: matrix[i][j] = array[i*size + j];
+//        i = 0 is the source of the graph (i.e. no incoming edges)
+//        i = size-1 is the sink of the graph (i.e. no outgoing edges)
+        dfg = new BitSet(size*size);
+
+        for( int i = 0; i<size*size; i++ )
+            if( matrixSDFG.get(i) ) {
+                dfg.set(i);
+                outgoings[i/size]++;
+                incomings[i%size]++;
+            }
+    }
+
     public SimpleDirectlyFollowGraph(DirectlyFollowGraphPlus directlyFollowGraphPlus, boolean tabuSearch) {
         this.parallelisms = directlyFollowGraphPlus.getParallelisms();
         this.loopsL1 = directlyFollowGraphPlus.getLoopsL1();
@@ -76,6 +106,10 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
             if(tabuSearch) tabu.add(src*size + tgt);
         }
     }
+
+    public BitSet getMatrixDFG() { return dfg; }
+
+    public int getSize() { return size; }
 
     public Set<Integer> getTabuSet() { return this.tabu; }
     public void setTabuSet(Set<Integer> tabu) { this.tabu = new HashSet<>(tabu); }

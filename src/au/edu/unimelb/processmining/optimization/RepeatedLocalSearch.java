@@ -87,6 +87,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                 iTime = System.currentTimeMillis() - iTime;
                 if(export) AutomatedProcessDiscoveryOptimizer.exportBPMN(currentBPMN, ".\\rls_" + modelName + "_" + iterations + ".bpmn");
                 writer.println(iterations + "," + currentAccuracy[0] + "," + currentAccuracy[1] + "," + currentAccuracy[2] + "," + iTime);
+//                System.out.println(iterations + "," + currentAccuracy[0] + "," + currentAccuracy[1] + "," + currentAccuracy[2] + "," + iTime);
                 writer.flush();
                 iterations++;
                 iTime = System.currentTimeMillis();
@@ -135,7 +136,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                     }
                 }
 
-//                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
+                System.out.println("INFO - selected " + neighbours.size() + " neighbours.");
 
                 if( neighbours.isEmpty() ) {
 //                    System.out.println("WARNING - empty neighbourhood " + neighbours.size() + " neighbours.");
@@ -154,7 +155,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                 }
 
 //                System.out.println("INFO - synchronising with threads.");
-                sleep(2500);
+                sleep(5000);
 
                 improved = false;
                 int done = 0;
@@ -180,7 +181,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                     }
                 }
 
-//                System.out.println("DONE - " + done);
+                System.out.println("DONE - " + done);
 //                System.out.println("CANCELLED - " + cancelled);
 
                 neighbours.clear();
@@ -215,7 +216,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
         writer.close();
 
         System.out.println("eTIME - " + (double)(eTime)/1000.0+ "s");
-//        System.out.println("STATS - total restarts: " + restarts);
+        System.out.println("STATS - total restarts: " + restarts);
 
         return bestBPMN;
     }
@@ -228,6 +229,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
         BPMNDiagram tmpBPMN;
         Object[] result;
 
+//        System.out.println("RESTART - starting...");
 
         try {
             restarts++;
@@ -239,7 +241,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            sleep(2500);
+            sleep(5000);
             if( evalResult.isDone() ) {
                 result = evalResult.get();
                 currentAccuracy[0] = (Double)result[0];
@@ -248,17 +250,18 @@ public class RepeatedLocalSearch implements Metaheuristics {
                 staProcess = (SubtraceAbstraction) result[3];
                 currentBPMN = (BPMNDiagram) result[4];
                 executor.shutdownNow();
-//                System.out.println("RESTART - done.");
+                System.out.println("RESTART - done.");
+//                AutomatedProcessDiscoveryOptimizer.exportBPMN(currentBPMN, ".\\fo-test.bpmn");
                 writer.println("r,r,r,r,r");
             } else {
-//                System.out.println("TIMEOUT - restart failed.");
+                System.out.println("TIMEOUT - restart failed.");
                 evalResult.cancel(true);
                 executor.shutdownNow();
                 restart(slog, order);
             }
         } catch (Exception e) {
-//            System.out.println("WARNING - restart failed.");
-//            e.printStackTrace();
+            System.out.println("WARNING - restart failed.");
+            e.printStackTrace();
             if(executor != null) executor.shutdownNow();
             restart(slog, order);
         }

@@ -37,8 +37,8 @@ import java.util.*;
 public class LogParser {
 
 //    !!WARNING - DO NOT CHANGE THESE VALUES!
-    private static final int STARTCODE = 0;
-    private static final int ENDCODE = -1;
+    public static final int STARTCODE = 0;
+    public static final int ENDCODE = -1;
 
 
     public static SimpleLog getSimpleLog(String path) {
