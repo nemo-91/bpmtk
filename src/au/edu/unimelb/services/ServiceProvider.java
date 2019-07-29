@@ -4,6 +4,7 @@ import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.omega.OmegaMiner;
 import au.edu.qut.processmining.miners.splitminer.SplitMiner;
+import au.edu.qut.processmining.miners.splitminer.dfgp.DirectlyFollowGraphPlus;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
@@ -27,7 +28,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {KEN, MAP, MAF, SMD, SMDX, ISL, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO}
+    public enum TEST_CODE {MAP, MAF, SMBD, SMD, SMDX, ISL, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMD}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -59,9 +60,9 @@ public class ServiceProvider {
         for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
 
         switch(code) {
-            case KEN:
-                (new Testing()).kendallTest(fargs);
-                break;
+//            case KEN:
+//                (new Testing()).kendallTest(fargs);
+//                break;
             case MAP:
                 testProvider.MarkovianPrecisionService(fargs);
                 break;
@@ -106,6 +107,12 @@ public class ServiceProvider {
                 break;
             case FOD:
                 testProvider.FodinaMinerService(fargs);
+                break;
+            case IMD:
+                testProvider.InductiveMinerService(fargs);
+                break;
+            case SMBD:
+                Testing.SMBatchDiscovery(fargs);
                 break;
         }
     }
@@ -223,6 +230,32 @@ public class ServiceProvider {
             UIContext context = new UIContext();
             UIPluginContext uiPluginContext = context.getMainPluginContext();
             bpmnExportPlugin.export(uiPluginContext, output, new File(args[3] + ".bpmn"));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR - fodina couldn't mine the process model.");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void InductiveMinerService(String[] args) {
+        try {
+            IMdProxy iMdProxy = new IMdProxy();
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[0]);
+
+            long etime = System.currentTimeMillis();
+            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(LogParser.getSimpleLog(log, new XEventNameClassifier()),0.0,1.0, DFGPUIResult.FilterType.NOF,true);
+            dfgp.buildDFGP();
+            SimpleDirectlyFollowGraph sdfg = new SimpleDirectlyFollowGraph(dfgp, false);
+            BPMNDiagram output = iMdProxy.discoverBPMNfromSDFG(sdfg);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            bpmnExportPlugin.export(uiPluginContext, output, new File(args[1] + ".bpmn"));
             return;
         } catch (Throwable e) {
             System.out.println("ERROR - fodina couldn't mine the process model.");

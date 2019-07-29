@@ -3,10 +3,25 @@ package au.edu.unimelb.services;
 import au.edu.qut.bpmn.io.BPMNDiagramImporter;
 import au.edu.qut.bpmn.io.impl.BPMNDiagramImporterImpl;
 import au.edu.qut.bpmn.metrics.ComplexityCalculator;
+import au.edu.qut.processmining.miners.splitminer.SplitMiner;
+import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
+import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator.Opd;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator.Abs;
+import com.raffaeleconforti.conversion.bpmn.BPMNToPetriNetConverter;
+import com.raffaeleconforti.log.util.LogImporter;
+import org.deckfour.xes.classification.XEventNameClassifier;
+import org.deckfour.xes.factory.XFactoryNaiveImpl;
+import org.deckfour.xes.model.XLog;
+import org.processmining.contexts.uitopia.UIContext;
+import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
+import org.processmining.models.graphbased.directed.petrinet.elements.Place;
+import org.processmining.plugins.bpmn.plugins.BpmnExportPlugin;
+import org.processmining.plugins.kutoolbox.utils.FakePluginContext;
+import org.processmining.plugins.pnml.exporting.PnmlExportNetToPNML;
 
 
 import java.io.File;
@@ -114,6 +129,43 @@ public class Testing {
             writer.flush();
         }
         writer.close();
+    }
+
+
+    static public void SMBatchDiscovery(String[] args) {
+            int startIndex = Integer.valueOf(args[1]);
+            int endIndex = Integer.valueOf(args[2]) + 1;
+
+            double epsilon = 0.1;
+            double eta = 0.4;
+            boolean replaceIORs = true;
+
+            String logPath = "";
+            String logsDir = args[0];
+
+            SplitMiner yam = new SplitMiner();
+            PnmlExportNetToPNML exporter = new PnmlExportNetToPNML();
+            XLog log;
+            BPMNDiagram output;
+            Object[] petrinet;
+
+            for (int i = startIndex; i < endIndex; i++) {
+                try {
+                    logPath = logsDir + i + ".xes";
+                    log = LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath);
+                    output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, true, SplitMinerUIResult.StructuringTime.NONE);
+                    petrinet = BPMNToPetriNetConverter.convert(output);
+                    exporter.exportPetriNetToPNMLFile(new FakePluginContext(), (Petrinet) petrinet[0], new File(logPath + ".pnml"));
+                } catch (Exception e) {
+//                    e.printStackTrace();
+                    System.out.println("ERROR - impossible to discover a petri net from: " + logPath);
+                    continue;
+                } catch (Error e) {
+//                    e.printStackTrace();
+                    System.out.println("ERROR - impossible to discover a petri net from: " + logPath);
+                    continue;
+                }
+            }
     }
 
 

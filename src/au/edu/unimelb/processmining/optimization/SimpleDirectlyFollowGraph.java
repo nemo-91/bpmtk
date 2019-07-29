@@ -109,7 +109,8 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
 
     public BitSet getMatrixDFG() { return dfg; }
 
-    public int getSize() { return size; }
+    @Override
+    public int size() { return size; }
 
     public Set<Integer> getTabuSet() { return this.tabu; }
     public void setTabuSet(Set<Integer> tabu) { this.tabu = new HashSet<>(tabu); }

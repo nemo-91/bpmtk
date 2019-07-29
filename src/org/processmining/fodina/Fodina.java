@@ -67,7 +67,7 @@ public class Fodina {
 
 //		System.out.println("DEBUG - Fodina : from SDFG > BPMN");
 
-		DependencyNet depnet = bitSetToDependencyNet(sdfg.getMatrixDFG(), sdfg.getSize());
+		DependencyNet depnet = bitSetToDependencyNet(sdfg.getMatrixDFG(), sdfg.size());
 		Petrinet petrinet = (Petrinet) getPetriNet(slog.getTraces(), depnet, settings)[0];
 		Marking initialMarking = PetriNetToBPMNConverter.guessInitialMarking(petrinet);
 		Marking finalMarking = PetriNetToBPMNConverter.guessFinalMarking(petrinet);
