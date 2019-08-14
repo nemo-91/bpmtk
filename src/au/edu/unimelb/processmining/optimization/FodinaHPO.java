@@ -3,8 +3,6 @@ package au.edu.unimelb.processmining.optimization;
 import au.edu.qut.bpmn.metrics.ComplexityCalculator;
 import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
-import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
-import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.abstraction.LogAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction;
 import com.raffaeleconforti.log.util.LogImporter;

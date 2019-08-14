@@ -211,4 +211,19 @@ public class SubtraceAbstraction extends Abstraction {
         }
     }
 
+    public static SubtraceAbstraction abstractProcessBehaviour(Petrinet pnet, Marking iMarking, int order, SimpleLog slog) {
+        ImportProcessModel importer = new ImportProcessModel();
+
+        try {
+            Automaton automaton = importer.createFSMfromPetrinet(pnet, iMarking, null, null);
+            AutomatonAbstraction automatonAbstraction = new AutomatonAbstraction(automaton, slog);
+
+            return (new ProcessAbstraction(automatonAbstraction)).subtrace(order);
+        } catch (Exception e) {
+//            e.printStackTrace();
+//            System.out.println("ERROR - impossible to parse the process object.");
+            return null;
+        }
+    }
+
 }

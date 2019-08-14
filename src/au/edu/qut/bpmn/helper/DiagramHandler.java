@@ -763,22 +763,12 @@ public class DiagramHandler {
         //System.out.println("DEBUG - checking fake gateways: " + g.getId());
         BPMNEdge<? extends BPMNNode, ? extends BPMNNode> in = null;
         BPMNEdge<? extends BPMNNode, ? extends BPMNNode> out = null;
-        int incoming = 0;
-        int outgoing = 0;
 
-        for( Flow f : diagram.getFlows() ) {
-            if( f.getSource() == g ) {
-                out = f;
-                outgoing++;
-            }
-            if( f.getTarget() == g ) {
-                in = f;
-                incoming++;
-            }
-        }
+        if( diagram.getInEdges(g).size() == 0 && diagram.getOutEdges(g).size() == 0 ) removeNode(diagram, g);
+        else if( diagram.getInEdges(g).size() == 1 && diagram.getOutEdges(g).size() == 1 ) {
+            in = new ArrayList<>(diagram.getInEdges(g)).get(0);
+            out = new ArrayList<>(diagram.getOutEdges(g)).get(0);
 
-        if( (outgoing == 0) && (incoming == 0) ) removeNode(diagram, g);
-        if( (outgoing == 1) && (incoming == 1) ) {
             diagram.addFlow(in.getSource(), out.getTarget(), "");
             diagram.removeEdge(in);
             diagram.removeEdge(out);

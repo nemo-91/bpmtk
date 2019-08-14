@@ -83,7 +83,7 @@ public class AutomatedProcessDiscoveryOptimizer {
         return  bpmn;
     }
 
-    protected static void exportBPMN(BPMNDiagram diagram, String path) {
+    public static void exportBPMN(BPMNDiagram diagram, String path) {
         BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
         UIContext context = new UIContext();
         UIPluginContext uiPluginContext = context.getMainPluginContext();

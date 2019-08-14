@@ -28,7 +28,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {MAP, MAF, SMBD, SMD, SMDX, ISL, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMD}
+    public enum TEST_CODE {MAP, MAF, SMBD, SMD, SMDX, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -63,6 +63,9 @@ public class ServiceProvider {
 //            case KEN:
 //                (new Testing()).kendallTest(fargs);
 //                break;
+//            case ISL:
+//                testProvider.importSimpleLog8020(fargs);
+//                break;
             case MAP:
                 testProvider.MarkovianPrecisionService(fargs);
                 break;
@@ -77,9 +80,6 @@ public class ServiceProvider {
                 break;
             case SMDX:
                 testProvider.SplitMinerServiceX(fargs);
-                break;
-            case ISL:
-                testProvider.importSimpleLog8020(fargs);
                 break;
             case AOM:
                 Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
@@ -101,6 +101,9 @@ public class ServiceProvider {
                 break;
             case FOHPO:
                 testProvider.FOHPO(fargs[0]);
+                break;
+            case IMHPO:
+                testProvider.IMHPO(fargs[0]);
                 break;
             case COMPX:
                 Testing.complexityOnRealModelsSet(fargs[0]);
@@ -125,6 +128,11 @@ public class ServiceProvider {
     public void FOHPO(String logPath) {
         FodinaHPO fohpo = new FodinaHPO();
         fohpo.hyperparamEvaluation(logPath);
+    }
+
+    public void IMHPO(String logPath) {
+        InductiveHPO imhpo = new InductiveHPO();
+        imhpo.hyperparamEvaluation(logPath);
     }
 
     public void APDO(String logPath, String order, String metaopt, String miner) {
@@ -247,7 +255,7 @@ public class ServiceProvider {
             DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(LogParser.getSimpleLog(log, new XEventNameClassifier()),0.0,1.0, DFGPUIResult.FilterType.NOF,true);
             dfgp.buildDFGP();
             SimpleDirectlyFollowGraph sdfg = new SimpleDirectlyFollowGraph(dfgp, false);
-            BPMNDiagram output = iMdProxy.discoverBPMNfromSDFG(sdfg);
+            BPMNDiagram output = iMdProxy.discoverFromSDFG(sdfg);
             etime = System.currentTimeMillis() - etime;
 
             System.out.println("eTIME - " + (double)etime/1000.0 + "s");
@@ -258,7 +266,7 @@ public class ServiceProvider {
             bpmnExportPlugin.export(uiPluginContext, output, new File(args[1] + ".bpmn"));
             return;
         } catch (Throwable e) {
-            System.out.println("ERROR - fodina couldn't mine the process model.");
+            System.out.println("ERROR - inductive miner couldn't mine the process model.");
             e.printStackTrace();
             return;
         }

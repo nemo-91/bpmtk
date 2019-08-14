@@ -112,6 +112,10 @@ public class SimpleDirectlyFollowGraph extends DirectlyFollowGraphPlus {
     @Override
     public int size() { return size; }
 
+    public boolean isEdge(int src, int tgt) {
+        return dfg.get(src*size+tgt);
+    }
+
     public Set<Integer> getTabuSet() { return this.tabu; }
     public void setTabuSet(Set<Integer> tabu) { this.tabu = new HashSet<>(tabu); }
 

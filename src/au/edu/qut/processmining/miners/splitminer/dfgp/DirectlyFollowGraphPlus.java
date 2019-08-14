@@ -63,7 +63,7 @@ public class DirectlyFollowGraphPlus {
     private boolean parallelismsFirst;
 
 
-    protected DirectlyFollowGraphPlus(){}
+    protected DirectlyFollowGraphPlus() {}
 
     public DirectlyFollowGraphPlus(SimpleLog log) {
         this(log, DFGPUIResult.FREQUENCY_THRESHOLD, DFGPUIResult.PARALLELISMS_THRESHOLD, DFGPUIResult.STD_FILTER, DFGPUIResult.PARALLELISMS_FIRST);
@@ -169,10 +169,37 @@ public class DirectlyFollowGraphPlus {
 
     public void buildDFGP() {
         System.out.println("DFGP - settings > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
+        untouchableEdges = new HashSet<>();
 
         buildDirectlyFollowsGraph();                //first method to execute
-        bestEdgesOnMaxCapacitiesForConnectedness(); //run if there may be the chance to have a disconnected graph
+        detectLoops();                              //depends on buildDirectlyFollowsGraph()
+        detectParallelisms();                       //depends on detectLoops()
 
+        switch(filterType) {                        //depends on detectParallelisms()
+            case FWG:
+                filterWithGuarantees();
+                break;
+            case WTH:
+                filterWithThreshold();
+                exploreAndRemove();
+                break;
+            case STD:
+                standardFilter();
+                exploreAndRemove();
+                break;
+            case NOF:
+//                filterWithGuarantees();
+//                exploreAndRemove();
+                break;
+        }
+
+    }
+
+    public void buildSafeDFGP() {
+        System.out.println("DFGP - settings > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
+
+        buildDirectlyFollowsGraph();                //first method to execute
+        bestEdgesOnMaxCapacitiesForConnectedness(); //this ensure a strongly connected graph (density may be impaired)
         detectLoops();                              //depends on buildDirectlyFollowsGraph()
         detectParallelisms();                       //depends on detectLoops()
 
@@ -710,7 +737,7 @@ public class DirectlyFollowGraphPlus {
             while( trace.hasMoreTokens() ) {
                 event = Integer.valueOf(trace.nextToken());
                 if( dfgp.containsKey(prevEvent) && dfgp.get(prevEvent).containsKey(event) ) {
-                    if(this.removeEdge(dfgp.get(prevEvent).get(event), true)) reduction++;
+                    if(this.removeEdge(dfgp.get(prevEvent).get(event), false)) reduction++;
                 }
                 prevEvent = event;
             }

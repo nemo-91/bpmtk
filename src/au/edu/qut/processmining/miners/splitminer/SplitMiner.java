@@ -97,9 +97,17 @@ public class SplitMiner {
             transformDFGPintoBPMN();
             if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
         } catch(Exception e) {
-            System.out.println("ERROR - something went wrong translating DFG to BPMN");
+            System.out.println("ERROR - something went wrong translating DFG to BPMN, trying a second time");
             e.printStackTrace();
-            return dfgp.convertIntoBPMNDiagram();
+            try{
+                dfgp = new DirectlyFollowGraphPlus(this.log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
+                dfgp.buildSafeDFGP();
+                transformDFGPintoBPMN();
+                if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
+            } catch ( Exception ee ) {
+                System.out.println("ERROR - nothing to do, returning the bare DFGP");
+                return dfgp.convertIntoBPMNDiagram();
+            }
         }
 
         return bpmnDiagram;
@@ -121,9 +129,17 @@ public class SplitMiner {
             transformDFGPintoBPMN();
             if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
         } catch(Exception e) {
-            System.out.println("ERROR - something went wrong translating DFG to BPMN");
+            System.out.println("ERROR - something went wrong translating DFG to BPMN, trying a second time");
             e.printStackTrace();
-            return dfgp.convertIntoBPMNDiagram();
+            try{
+                dfgp = new DirectlyFollowGraphPlus(log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
+                dfgp.buildSafeDFGP();
+                transformDFGPintoBPMN();
+                if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
+            } catch ( Exception ee ) {
+                System.out.println("ERROR - nothing to do, returning the bare DFGP");
+                return dfgp.convertIntoBPMNDiagram();
+            }
         }
 
         return bpmnDiagram;
