@@ -162,7 +162,7 @@ public class SimulatedAnnealing implements Metaheuristics {
                 }
 
 //                System.out.println("INFO - synchronising with threads.");
-                sleep(2500);
+                sleep(minerProxy.getTimeout());
                 improved = false;
                 for( SimpleDirectlyFollowGraph neighbourSDFG : neighboursEvaluations.keySet() ) {
                     evalResult = neighboursEvaluations.get(neighbourSDFG);
@@ -252,7 +252,7 @@ public class SimulatedAnnealing implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            sleep(2500);
+            sleep(minerProxy.getTimeout());
             if( evalResult.isDone() ) {
                 result = evalResult.get();
                 currentAccuracy[0] = (Double)result[0];

@@ -19,12 +19,13 @@ import java.io.*;
 public class SplitMinerHPO {
 
     private static int MKO = 5;
+    private static boolean printall = true;
 
-    private static double p_STEP = 0.01D;
+    private static double p_STEP = 0.10D;
     private static double p_MIN = 0.00D;
     private static double p_MAX = 1.05D;
 
-    private static double f_STEP = 0.01D;
+    private static double f_STEP = 0.10D;
     private static double f_MIN = 0.10D;
     private static double f_MAX = 1.05D;
 
@@ -89,7 +90,7 @@ public class SplitMinerHPO {
                     }));
 
                     eTime = System.currentTimeMillis();
-                    bpmn = yam.mineBPMNModel(slog, new XEventNameClassifier(), f_threshold, p_threshold, DFGPUIResult.FilterType.WTH, false, true, false, SplitMinerUIResult.StructuringTime.NONE);
+                    bpmn = yam.mineBPMNModel(slog, new XEventNameClassifier(), f_threshold, p_threshold, DFGPUIResult.FilterType.FWG, false, true, false, SplitMinerUIResult.StructuringTime.NONE);
 
                     staProcess = SubtraceAbstraction.abstractProcessBehaviour(bpmn, MKO, slog);
                     fit = staLog.minus(staProcess);
@@ -115,6 +116,7 @@ public class SplitMinerHPO {
                         bestBPMN = bpmn;
                     }
 
+                    if(printall) AutomatedProcessDiscoveryOptimizer.exportBPMN(bpmn, ".\\smhpo_" + lName + "_" + f_threshold + "_" + p_threshold + ".bpmn");
                 } catch (Exception e) {
 //                    e.printStackTrace();
                     System.out.println("ERROR - splitminer output model broken @ " + f_threshold + " : " + p_threshold);

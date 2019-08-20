@@ -155,7 +155,7 @@ public class IteratedLocalSearch implements Metaheuristics {
                     neighboursEvaluations.put(neighbourSDFG, evalResult);
                 }
 
-                sleep(2500);
+                sleep(minerProxy.getTimeout());
 
                 improved = false;
                 for( SimpleDirectlyFollowGraph neighbourSDFG : neighboursEvaluations.keySet() ) {
@@ -230,7 +230,7 @@ public class IteratedLocalSearch implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            result = evalResult.get(5000, TimeUnit.MILLISECONDS);
+            result = evalResult.get(minerProxy.getTimeout(), TimeUnit.MILLISECONDS);
             currentAccuracy[0] = (Double)result[0];
             currentAccuracy[1] = (Double)result[1];
             currentAccuracy[2] = (Double)result[2];
@@ -270,7 +270,7 @@ public class IteratedLocalSearch implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            sleep(2500);
+            sleep(minerProxy.getTimeout());
             if( evalResult.isDone() ) {
                 result = evalResult.get();
                 currentAccuracy[0] = (Double)result[0];

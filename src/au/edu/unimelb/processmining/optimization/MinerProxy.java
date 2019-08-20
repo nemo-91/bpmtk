@@ -24,6 +24,7 @@ public class MinerProxy {
     public enum MinerTAG {SM, IM, FO, SHM}
     private MinerTAG tag;
     private SimpleLog slog;
+    private int timeout;
 
     /****************** Split Miner *******************/
     private SplitMiner sm;
@@ -38,7 +39,7 @@ public class MinerProxy {
     private IMdProxy inductive;
     /***************************************************/
 
-    /***************** Shared SM and FO ****************/
+    /***************** Shared SM, IM and FO ****************/
     private ArrayList<Params> restartParams;
     private ArrayList<Params> perturbParams;
     private Params defaultParams;
@@ -63,6 +64,7 @@ public class MinerProxy {
         switch( tag ) {
             case SM:
                 sm = new SplitMiner();
+                timeout = 2500;
 
                 params = new ArrayList<>();
                 for(int i=2; i < 6; i++)
@@ -86,6 +88,7 @@ public class MinerProxy {
             case FO:
                 System.out.println("DEBUG - Fodina Miner selected.");
                 fodina = new Fodina();
+                timeout = 4000;
 
                 params = new ArrayList<>();
                 for(int i=0; i < 11; i++)
@@ -113,6 +116,25 @@ public class MinerProxy {
             case IM:
 //                System.out.println("DEBUG - IM ready to go");
                 inductive = new IMdProxy();
+                timeout = 10000;
+                params = new ArrayList<>();
+                for(int i=2; i < 6; i++)
+                    for(int j=1; j < 4; j++)
+                        params.add(new Params(i*0.2, j*0.2));
+                restartParams = new ArrayList<>(params.size()+1);
+
+                defaultParams = new Params(1.0, 0.0);
+                restartParams.add(defaultParams);
+                do {
+                    param = params.remove(random.nextInt(params.size()));
+                    restartParams.add(param);
+                } while( !params.isEmpty() );
+
+                perturbParams = new ArrayList<>(5);
+                dparam0 = defaultParams.getParam(0);
+                for(int j=0; j < 6; j++)
+                    perturbParams.add(new Params(dparam0, j*0.2));
+                break;
 
             default:
                 break;
@@ -146,7 +168,10 @@ public class MinerProxy {
                 return fodina.discoverSDFG(slog, fodinaSettings);
 
             case IM:
-                dfgp = new DirectlyFollowGraphPlus(slog,0.0,1.0, DFGPUIResult.FilterType.NOF,true);
+                param = perturbParams.remove(0);
+                perturbParams.add(param);
+
+                dfgp = new DirectlyFollowGraphPlus(slog, param.getParam(0),  param.getParam(1), DFGPUIResult.FilterType.FWG, false);
                 dfgp.buildDFGP();
                 sdfgo = new SimpleDirectlyFollowGraph(dfgp, false);
                 return sdfgo;
@@ -203,7 +228,9 @@ public class MinerProxy {
                 }
             case IM:
 //                System.out.println("DEBUG - time for IM to shine");
-                dfgp = new DirectlyFollowGraphPlus(slog,0.0,1.0, DFGPUIResult.FilterType.NOF,true);
+                if( restartParams.isEmpty() ) return null;
+                param = restartParams.remove(0);
+                dfgp = new DirectlyFollowGraphPlus(slog, param.getParam(0),  param.getParam(1), DFGPUIResult.FilterType.FWG, false);
                 dfgp.buildDFGP();
                 sdfg = new SimpleDirectlyFollowGraph(dfgp, false);
                 return sdfg;
@@ -224,6 +251,8 @@ public class MinerProxy {
                 return null;
         }
     }
+
+    public int getTimeout() { return timeout; }
 
     private class Params {
         double[] params;

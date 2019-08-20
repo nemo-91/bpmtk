@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import au.edu.qut.bpmn.helper.DiagramHandler;
-import com.raffaeleconforti.conversion.petrinet.PetriNetToBPMNConverter;
+import au.edu.qut.bpmn.helper.Petrinet2BPMNConverter;
 import org.processmining.acceptingpetrinet.models.AcceptingPetriNet;
 import org.processmining.framework.packages.PackageManager.Canceller;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
@@ -32,7 +32,7 @@ public class IMdProxy {
 			AcceptingPetriNet petrinet = DFG2ModelWithIMd(sdfg);
 			Marking initialMarking = petrinet.getInitialMarking();
 			Marking finalMarking = (new ArrayList<>(petrinet.getFinalMarkings())).get(0);
-			BPMNDiagram bpmn = PetriNetToBPMNConverter.convert(petrinet.getNet(), initialMarking, finalMarking, false);
+			BPMNDiagram bpmn = Petrinet2BPMNConverter.getBPMN(petrinet.getNet(), initialMarking, finalMarking);
 			return updateLabels(sdfg.getSimpleLog().getEvents(), bpmn, sdfg.size()-1);
 	}
 

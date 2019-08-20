@@ -851,6 +851,50 @@ public class DirectlyFollowGraphPlus {
 //        }
     }
 
+    private boolean isConnected() {
+        int src, tgt;
 
+        LinkedList<Integer> toVisit = new LinkedList<>();
+        Set<Integer> unvisited = new HashSet<>();
+
+//      forward exploration
+        toVisit.add(startcode);
+        unvisited.addAll(nodes.keySet());
+        unvisited.remove(startcode);
+
+        while( !toVisit.isEmpty() ) {
+            src = toVisit.removeFirst();
+            for( DFGEdge oe : outgoings.get(src) ) {
+                tgt = oe.getTargetCode();
+                if( unvisited.contains(tgt) ) {
+                    toVisit.addLast(tgt);
+                    unvisited.remove(tgt);
+                }
+            }
+        }
+
+        if(!unvisited.isEmpty()) return false;
+
+//      backward exploration
+        toVisit.add(endcode);
+        unvisited.clear();
+        unvisited.addAll(nodes.keySet());
+        unvisited.remove(endcode);
+
+        while( !toVisit.isEmpty() ) {
+            tgt = toVisit.removeFirst();
+            for( DFGEdge oe : incomings.get(tgt) ) {
+                src = oe.getSourceCode();
+                if( unvisited.contains(src) ) {
+                    toVisit.addLast(src);
+                    unvisited.remove(src);
+                }
+            }
+        }
+
+        if(!unvisited.isEmpty()) return false;
+
+        return true;
+    }
 
 }

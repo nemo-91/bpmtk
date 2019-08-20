@@ -79,7 +79,7 @@ public class AutomatedProcessDiscoveryOptimizer {
         }
 
 //        exportBPMN(bpmn, ".\\os-bpmn_" + System.currentTimeMillis() + ".bpmn");
-        exportBPMN(bpmn, ".\\" + metaheuristics.toString() + "_" + modelName + "_best.bpmn");
+        exportBPMN(bpmn, ".\\" + metaheuristics.toString() + "_" + modelName + ".bpmn");
         return  bpmn;
     }
 

@@ -155,7 +155,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
                 }
 
 //                System.out.println("INFO - synchronising with threads.");
-                sleep(5000);
+                sleep(minerProxy.getTimeout());
 
                 improved = false;
                 int done = 0;
@@ -241,7 +241,7 @@ public class RepeatedLocalSearch implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            sleep(5000);
+            sleep(minerProxy.getTimeout());
             if( evalResult.isDone() ) {
                 result = evalResult.get();
                 currentAccuracy[0] = (Double)result[0];

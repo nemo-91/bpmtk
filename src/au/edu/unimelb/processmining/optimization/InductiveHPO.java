@@ -5,11 +5,12 @@ import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.unimelb.processmining.accuracy.abstraction.LogAbstraction;
 import au.edu.unimelb.processmining.accuracy.abstraction.subtrace.SubtraceAbstraction;
-import com.raffaeleconforti.conversion.petrinet.PetriNetToBPMNConverter;
 import com.raffaeleconforti.log.util.LogImporter;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.model.XLog;
+import org.processmining.acceptingpetrinet.models.AcceptingPetriNet;
+import org.processmining.acceptingpetrinet.models.impl.AcceptingPetriNetImpl;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.semantics.petrinet.Marking;
@@ -19,13 +20,14 @@ import org.processmining.plugins.pnml.exporting.PnmlExportNetToPNML;
 import au.edu.qut.bpmn.helper.Petrinet2BPMNConverter;
 
 import java.io.*;
+import java.util.ArrayList;
 
 public class InductiveHPO {
 
-    private static int MKO = 4;
+    private static int MKO = 5;
 
     private static float f_STEP = 0.05F;
-    private static float f_MIN = 0.00F;
+    private static float f_MIN = 0.15F;
     private static float f_MAX = 1.01F;
 
     public BPMNDiagram hyperparamEvaluation(String logPath) {
@@ -36,7 +38,7 @@ public class InductiveHPO {
         XLog xlog;
         SimpleLog slog;
 
-        Petrinet bestPN = null;
+        AcceptingPetriNet bestPN = null;
         BPMNDiagram bestBPMN = null;
         double[] bestAccuracy = {0.0, 0.0, 0.0};
 
@@ -113,7 +115,7 @@ public class InductiveHPO {
                         bestAccuracy[0] = fit;
                         bestAccuracy[1] = prec;
                         bestAccuracy[2] = score;
-                        bestPN = (Petrinet) result[0];
+                        bestPN = new AcceptingPetriNetImpl((Petrinet) result[0], (Marking) result[1], (Marking) result[2]);
                     }
 
                     System.out.println("DEBUG - hello " + f_threshold);
@@ -126,7 +128,7 @@ public class InductiveHPO {
             } while ( f_threshold <= f_MAX);
 
         try {
-            complexityCalculator.setBPMN(bestBPMN = Petrinet2BPMNConverter.getBPMN(bestPN));
+            complexityCalculator.setBPMN(bestBPMN = Petrinet2BPMNConverter.getBPMN(bestPN.getNet(), bestPN.getInitialMarking(), new ArrayList<>(bestPN.getFinalMarkings()).get(0)));
             AutomatedProcessDiscoveryOptimizer.exportBPMN(bestBPMN, ".\\imhpo_" + lName + "_best.bpmn");
             size = Integer.valueOf(complexityCalculator.computeSize());
             cfc = Integer.valueOf(complexityCalculator.computeCFC());
@@ -140,7 +142,7 @@ public class InductiveHPO {
         writer.close();
 
         try {
-            exporter.exportPetriNetToPNMLFile(new org.processmining.plugins.kutoolbox.utils.FakePluginContext(), bestPN, new File(".\\imhpo_" + lName + "_.pnml"));
+            exporter.exportPetriNetToPNMLFile(new org.processmining.plugins.kutoolbox.utils.FakePluginContext(), bestPN.getNet(), new File(".\\imhpo_" + lName + "_.pnml"));
         } catch( Exception e) {
             System.out.println("ERROR - impossible to export petrinet!");
         }

@@ -173,7 +173,7 @@ public class TabuSearch implements Metaheuristics {
                 }
 
 //                System.out.println("INFO - synchronising with threads.");
-                sleep(2500);
+                sleep(minerProxy.getTimeout());
 
                 improved = false;
                 tabucounter = 0;
@@ -268,7 +268,7 @@ public class TabuSearch implements Metaheuristics {
             executor = Executors.newSingleThreadExecutor();
             evalResult = executor.submit(markovianBasedEvaluator);
 
-            result = evalResult.get(5000, TimeUnit.MILLISECONDS);
+            result = evalResult.get(minerProxy.getTimeout(), TimeUnit.MILLISECONDS);
             currentAccuracy[0] = (Double)result[0];
             currentAccuracy[1] = (Double)result[1];
             currentAccuracy[2] = (Double)result[2];
