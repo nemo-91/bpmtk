@@ -9,6 +9,7 @@ import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
 import au.edu.unimelb.processmining.optimization.*;
+import com.raffaeleconforti.conversion.bpmn.BPMNToPetriNetConverter;
 import com.raffaeleconforti.log.util.LogImporter;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
@@ -17,8 +18,11 @@ import org.processmining.contexts.uitopia.UIContext;
 import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.fodina.Fodina;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.plugins.bpmn.plugins.BpmnExportPlugin;
 import org.processmining.plugins.bpmnminer.types.MinerSettings;
+import org.processmining.plugins.kutoolbox.utils.FakePluginContext;
+import org.processmining.plugins.pnml.exporting.PnmlExportNetToPNML;
 
 import java.io.File;
 
@@ -28,7 +32,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {MAP, MAF, SMBD, SMD, SMDX, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
+    public enum TEST_CODE {MAP, MAF, SMBD, SMPN, SMD, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -78,9 +82,9 @@ public class ServiceProvider {
             case SMD:
                 testProvider.SplitMinerService(fargs);
                 break;
-            case SMDX:
-                testProvider.SplitMinerServiceX(fargs);
-                break;
+//            case SMDX:
+//                testProvider.SplitMinerServiceX(fargs);
+//                break;
             case AOM:
                 Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
                 break;
@@ -116,6 +120,9 @@ public class ServiceProvider {
                 break;
             case SMBD:
                 Testing.SMBatchDiscovery(fargs);
+                break;
+            case SMPN:
+                testProvider.SplitMinerServicePetrinet(fargs);
                 break;
         }
     }
@@ -211,7 +218,38 @@ public class ServiceProvider {
             System.out.println("RUN> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD e n p 'logpath\\log.[xes|xes.gz|mxml]' 'outputpath\\outputname' ");
             System.out.println("PARAM: e = double in [0,1] : parallelism threshold (epsilon)");
             System.out.println("PARAM: n = double in [0,1] : percentile for frequency threshold (eta)");
-            System.out.println("PARAM: p = [true|false] : parallelisms are discovered before loops");
+            System.out.println("PARAM: p = [true|false] : replace non trivial OR joins?");
+            System.out.println("EXAMPLE: java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD 0.1 0.4 .\\logs\\SEPSIS.xes.gz .\\outputs\\SEPSIS");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void SplitMinerServicePetrinet(String[] args) {
+
+        double epsilon = Double.valueOf(args[0]);
+        double eta = Double.valueOf(args[1]);
+        boolean replaceIORs = Boolean.valueOf(args[2]);
+
+        SplitMiner yam = new SplitMiner();
+        PnmlExportNetToPNML exporter = new PnmlExportNetToPNML();
+        BPMNDiagram output;
+        Object[] petrinet;
+        try{
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
+            long etime = System.currentTimeMillis();
+            output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, true, SplitMinerUIResult.StructuringTime.NONE);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+            petrinet = BPMNToPetriNetConverter.convert(output);
+            exporter.exportPetriNetToPNMLFile(new FakePluginContext(), (Petrinet) petrinet[0], new File(args[4] + ".pnml"));
+        } catch (Throwable e) {
+            System.out.println("ERROR: wrong usage.");
+            System.out.println("RUN (WINDOWS)> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD e n p 'logpath\\log.[xes|xes.gz|mxml]' 'outputpath\\outputname' ");
+            System.out.println("PARAM: e = double in [0,1] : parallelism threshold (epsilon)");
+            System.out.println("PARAM: n = double in [0,1] : percentile for frequency threshold (eta)");
+            System.out.println("PARAM: p = [true|false] : replace non trivial OR joins?");
             System.out.println("EXAMPLE: java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD 0.1 0.4 .\\logs\\SEPSIS.xes.gz .\\outputs\\SEPSIS");
             e.printStackTrace();
             return;
