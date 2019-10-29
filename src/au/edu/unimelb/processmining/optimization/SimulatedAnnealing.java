@@ -180,7 +180,7 @@ public class SimulatedAnnealing implements Metaheuristics {
                         } else if( iterations != maxTemperature && result[3] != null && icounter != 0) {
                             exponent = (currentAccuracy[2] - (Double)result[2])/(maxTemperature - iterations);
                             probability = Math.exp(exponent);
-                            if( probability > 0 ) {
+                            if( probability > 0.1 ) {
 //                                System.out.println("INFO - annealing with probability: " + probability);
                                 currentAccuracy[0] = (Double)result[0];
                                 currentAccuracy[1] = (Double)result[1];

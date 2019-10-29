@@ -290,8 +290,9 @@ public class ServiceProvider {
             XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[0]);
 
             long etime = System.currentTimeMillis();
-            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(LogParser.getSimpleLog(log, new XEventNameClassifier()),0.0,1.0, DFGPUIResult.FilterType.NOF,true);
-            dfgp.buildDFGP();
+            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(LogParser.getSimpleLog(log, new XEventNameClassifier()),0.0,0.0, DFGPUIResult.FilterType.NOF,true);
+//            dfgp.buildDFGP();
+            dfgp.buildDirectlyFollowsGraph();
             SimpleDirectlyFollowGraph sdfg = new SimpleDirectlyFollowGraph(dfgp, false);
             BPMNDiagram output = iMdProxy.discoverFromSDFG(sdfg);
             etime = System.currentTimeMillis() - etime;
