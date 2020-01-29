@@ -24,7 +24,10 @@ import org.processmining.plugins.bpmnminer.types.MinerSettings;
 import org.processmining.plugins.kutoolbox.utils.FakePluginContext;
 import org.processmining.plugins.pnml.exporting.PnmlExportNetToPNML;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 
 
 /**
@@ -32,7 +35,7 @@ import java.io.File;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {MAP, MAF, SMBD, SMPN, SMD, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
+    public enum TEST_CODE {MAP, MAF, MWT, SMPN, SMD, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -118,13 +121,42 @@ public class ServiceProvider {
             case IMD:
                 testProvider.InductiveMinerService(fargs);
                 break;
-            case SMBD:
-                Testing.SMBatchDiscovery(fargs);
-                break;
+//            case SMBD:
+//                Testing.SMBatchDiscovery(fargs);
+//                break;
             case SMPN:
                 testProvider.SplitMinerServicePetrinet(fargs);
                 break;
+            case MWT:
+                testProvider.Utest(fargs);
+                break;
         }
+    }
+
+    public void Utest(String[] args) {
+        String file = args[0];
+        int size1 = Integer.valueOf(args[1]);
+        int size2 = Integer.valueOf(args[2]);
+
+        double[] best = new double[size1];
+        double[] challenger = new double[size2];
+
+        BufferedReader reader;
+        try {
+            reader = new BufferedReader(new FileReader(file));
+
+            for(int i = 0; i<size1; i++)
+                best[i] = Double.parseDouble(reader.readLine());
+
+            for(int i = 0; i<size2; i++)
+                challenger[i] = Double.parseDouble(reader.readLine());
+
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        Testing.mannWhitneyTest(best, challenger);
     }
 
     public void SMHPO(String logPath) {

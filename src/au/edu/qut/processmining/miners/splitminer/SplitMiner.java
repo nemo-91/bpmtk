@@ -200,7 +200,7 @@ public class SplitMiner {
 //        firstly we generate the split gateways
 
 //        there are only two events in the initial BPMN diagram,
-//        one is the START and for exclusion the second is the END
+//        one is the START and by exclusion the second is the END
         for( Event e : bpmnDiagram.getEvents() )
             if( e.getEventType() == Event.EventType.START ) entry = e;
             else exit = e;
@@ -466,6 +466,7 @@ public class SplitMiner {
 //                if we are analysing a RIGID, we cannot match the join with the split
 //                otherwise, if it is the case of a BOND, we can
                 gType = isRigid ? Gateway.GatewayType.INCLUSIVE : gates.get(matchingGate);
+//                gType = Gateway.GatewayType.INCLUSIVE; // decomment this in case of debugging for incorrect gateways types
 
 //                if we already turned this activity into a gateway, we cannot edit it anymore
 //                we will go through it again (if needed) in the next call of this method

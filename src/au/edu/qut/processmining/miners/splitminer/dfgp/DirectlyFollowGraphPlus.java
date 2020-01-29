@@ -378,6 +378,8 @@ public class DirectlyFollowGraphPlus {
 
         parallelisms = new HashMap<>();
 
+        if( parallelismsThreshold == 0 ) return;
+
         for (DFGEdge e1 : edges) {
             src = e1.getSourceCode();
             tgt = e1.getTargetCode();
@@ -770,6 +772,7 @@ public class DirectlyFollowGraphPlus {
 
 //    EXPERIMENTAL
 
+// this method is exactly the same of bestEdgesOnMaxCapacities
     private void bestEdgesOnMaxCapacitiesForConnectedness() {
         int src, tgt, cap, maxCap;
         DFGEdge bp, bs;

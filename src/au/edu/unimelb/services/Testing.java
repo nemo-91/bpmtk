@@ -403,6 +403,58 @@ public class Testing {
         writer.close();
     }
 
+    static public double mannWhitneyTest(double[] best, double[] challenger) {
+        int n1 = (best.length);
+        int n2 = (challenger.length);
+
+        double u1 = 0.0;
+        double u2 = 0.0;
+        double uo;
+
+        double z;
+
+        System.out.println("DEBUG - n1 = " + n1);
+        System.out.println("DEBUG - n2 = " + n2);
+        n1--;
+        n2--;
+        System.out.println("DEBUG - " + best[n1]);
+        System.out.println("DEBUG - " + challenger[n2]);
+
+
+        for(int i = 0; i<n1; i++)
+            for(int j=0; j<n2; j++) {
+                if (best[i] > challenger[j]) u1 += 1.0;
+                else if (best[i] == challenger[j]) u1 += 0.5;
+            }
+
+        for(int i = 0; i<n2; i++)
+            for(int j=0; j<n1; j++) {
+                if (challenger[i] > best[j]) u2 += 1.0;
+                else if (challenger[i] == best[j]) u2 += 0.5;
+            }
+
+        n1++;
+        n2++;
+        System.out.println("DEBUG - n1*n2 = " + (n1*n2));
+        System.out.println("DEBUG - U1 = " + u1);
+        System.out.println("DEBUG - U2 = " + u2);
+        System.out.println("DEBUG - U1 + U2 = " + (u1 + u2));
+
+        uo = u1 > u2 ? u2 : u1;
+        double x = (double)n1*n2;
+        double y = n1+n2+1.0;
+
+        System.out.println("DEBUG - X = " + x);
+        System.out.println("DEBUG - Y = " + y);
+
+        z = (uo - (x/2.0))/Math.sqrt(x*y/12.0);
+
+        System.out.println("RESULT - z = " + z);
+        if(z > 1.96 || z < -1.96) System.out.println("DEBUG - statistically significant.");
+
+        return z;
+    }
+
 }
 
 
