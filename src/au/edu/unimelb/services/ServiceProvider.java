@@ -1,5 +1,6 @@
 package au.edu.unimelb.services;
 
+import au.edu.qut.processmining.log.ComplexLog;
 import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.omega.OmegaMiner;
@@ -11,6 +12,7 @@ import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
 import au.edu.unimelb.processmining.optimization.*;
 import com.raffaeleconforti.conversion.bpmn.BPMNToPetriNetConverter;
 import com.raffaeleconforti.log.util.LogImporter;
+import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.model.XLog;
@@ -62,74 +64,165 @@ public class ServiceProvider {
 //                return;
 //        }
 
-        TEST_CODE code = TEST_CODE.valueOf(args[0]);
-        String[] fargs = new String[args.length-1];
-        for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
+        try {
+            TEST_CODE code = TEST_CODE.valueOf(args[0]);
+            String[] fargs = new String[args.length-1];
+            for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
 
-        switch(code) {
-//            case KEN:
-//                (new Testing()).kendallTest(fargs);
-//                break;
-//            case ISL:
-//                testProvider.importSimpleLog8020(fargs);
-//                break;
-            case MAP:
-                testProvider.MarkovianPrecisionService(fargs);
-                break;
-            case MAF:
-                testProvider.MarkovianFitnessService(fargs);
-                break;
-            case MAC:
-                testProvider.MarkovianAccuracyService(fargs);
-                break;
-            case SMD:
-                testProvider.SplitMinerService(fargs);
-                break;
-//            case SMDX:
-//                testProvider.SplitMinerServiceX(fargs);
-//                break;
-            case AOM:
-                Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
-                break;
-            case AOL:
-                Testing.accuracyOnLogsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
-                break;
-            case AORM:
-                Testing.accuracyOnRealModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
-                break;
-            case OM:
-                testProvider.omegaMiner(fargs[0]);
-                break;
-            case OPTF:
-                testProvider.APDO(fargs[0], fargs[1], fargs[2], fargs[3]);
-                break;
-            case SMHPO:
-                testProvider.SMHPO(fargs[0]);
-                break;
-            case FOHPO:
-                testProvider.FOHPO(fargs[0]);
-                break;
-            case IMHPO:
-                testProvider.IMHPO(fargs[0]);
-                break;
-            case COMPX:
-                Testing.complexityOnRealModelsSet(fargs[0]);
-                break;
-            case FOD:
-                testProvider.FodinaMinerService(fargs);
-                break;
-            case IMD:
-                testProvider.InductiveMinerService(fargs);
-                break;
-//            case SMBD:
-//                Testing.SMBatchDiscovery(fargs);
-//                break;
-            case SMPN:
-                testProvider.SplitMinerServicePetrinet(fargs);
-                break;
-            case MWT:
-                testProvider.Utest(fargs);
-                break;
+            switch(code) {
+    //            case KEN:
+    //                (new Testing()).kendallTest(fargs);
+    //                break;
+    //            case ISL:
+    //                testProvider.importSimpleLog8020(fargs);
+    //                break;
+                case MAP:
+                    testProvider.MarkovianPrecisionService(fargs);
+                    break;
+                case MAF:
+                    testProvider.MarkovianFitnessService(fargs);
+                    break;
+                case MAC:
+                    testProvider.MarkovianAccuracyService(fargs);
+                    break;
+                case SMD:
+                    testProvider.SplitMinerService(fargs);
+                    break;
+    //            case SMDX:
+    //                testProvider.SplitMinerServiceX(fargs);
+    //                break;
+                case AOM:
+                    Testing.accuracyOnModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
+                    break;
+                case AOL:
+                    Testing.accuracyOnLogsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
+                    break;
+                case AORM:
+                    Testing.accuracyOnRealModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
+                    break;
+                case OM:
+                    testProvider.omegaMiner(fargs[0]);
+                    break;
+                case OPTF:
+                    testProvider.APDO(fargs[0], fargs[1], fargs[2], fargs[3]);
+                    break;
+                case SMHPO:
+                    testProvider.SMHPO(fargs[0]);
+                    break;
+                case FOHPO:
+                    testProvider.FOHPO(fargs[0]);
+                    break;
+                case IMHPO:
+                    testProvider.IMHPO(fargs[0]);
+                    break;
+                case COMPX:
+                    Testing.complexityOnRealModelsSet(fargs[0]);
+                    break;
+                case FOD:
+                    testProvider.FodinaMinerService(fargs);
+                    break;
+                case IMD:
+                    testProvider.InductiveMinerService(fargs);
+                    break;
+    //            case SMBD:
+    //                Testing.SMBatchDiscovery(fargs);
+    //                break;
+                case SMPN:
+                    testProvider.SplitMinerServicePetrinet(fargs);
+                    break;
+                case MWT:
+                    testProvider.Utest(fargs);
+                    break;
+            }
+
+        } catch(Exception e) {
+            int code = Integer.valueOf(args[0]);
+            String[] fargs = new String[args.length-1];
+            for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
+
+            switch (code) {
+                case 1:
+                    testProvider.parseComplexLog(fargs);
+                    break;
+                case 2:
+                    testProvider.SplitMiner20Service(fargs);
+                    break;
+                default: return;
+            }
+        }
+    }
+
+    public void parseComplexLog(String[] args) {
+        boolean takeiteasy = false;
+        BPMNDiagram diagram;
+        SplitMiner sm = new SplitMiner(false, false);
+
+        String logPath = args[0];
+        String modelName = args[1] + ".bpmn";
+
+        double eta = Double.valueOf(args[2]);
+        double epsilon = Double.valueOf(args[3]);
+        boolean parallelismFirst =  Boolean.valueOf(args[4]);
+        boolean replaceIORs = Boolean.valueOf(args[5]);
+        boolean removeLoopActivities = Boolean.valueOf(args[6]);
+//        double auxiliary = Double.valueOf(args[7]);
+
+        try {
+            SimpleLog cLog = LogParser.getComplexLog(LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath), new XEventNameClassifier());
+            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(cLog, eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst);
+
+            if(takeiteasy && (cLog instanceof ComplexLog)) {
+                dfgp.buildDFGfromComplexLog();
+                dfgp.detectLoops();
+                dfgp.detectParallelismsFromComplexLog();
+                diagram = dfgp.convertIntoBPMNDiagramWithOriginalLabels();
+            } else {
+                dfgp.buildDFGP();
+                sm = new SplitMiner(replaceIORs, removeLoopActivities);
+                diagram = sm.discoverFromDFGP(dfgp);
+            }
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            bpmnExportPlugin.export(uiPluginContext, diagram, new File(modelName));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR: - something went wrong");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void SplitMiner20Service(String[] args) {
+        try {
+            double epsilon = Double.valueOf(args[0]);
+            double eta = Double.valueOf(args[1]);
+            boolean replaceIORs = Boolean.valueOf(args[2]);
+            XEventClassifier xEventClassifier = new XEventNameClassifier();
+
+            SplitMiner yam = new SplitMiner();
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
+            long etime = System.currentTimeMillis();
+            BPMNDiagram output = yam.mineBPMNModel(LogParser.getComplexLog(log, xEventClassifier), xEventClassifier, eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, true, SplitMinerUIResult.StructuringTime.NONE);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            bpmnExportPlugin.export(uiPluginContext, output, new File(args[4] + ".bpmn"));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR: wrong usage.");
+            System.out.println("RUN> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD e n p 'logpath\\log.[xes|xes.gz|mxml]' 'outputpath\\outputname' ");
+            System.out.println("PARAM: e = double in [0,1] : parallelism threshold (epsilon)");
+            System.out.println("PARAM: n = double in [0,1] : percentile for frequency threshold (eta)");
+            System.out.println("PARAM: p = [true|false] : replace non trivial OR joins?");
+            System.out.println("EXAMPLE: java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD 0.1 0.4 .\\logs\\SEPSIS.xes.gz .\\outputs\\SEPSIS");
+            e.printStackTrace();
+            return;
         }
     }
 
@@ -228,14 +321,16 @@ public class ServiceProvider {
 
     public void SplitMinerService(String[] args) {
         try {
-            double epsilon = Double.valueOf(args[0]);
-            double eta = Double.valueOf(args[1]);
-            boolean replaceIORs = Boolean.valueOf(args[2]);
+            double eta = Double.valueOf(args[0]);
+            double epsilon = Double.valueOf(args[1]);
+            boolean parallelismFirst =  Boolean.valueOf(args[2]);
+            boolean replaceIORs = Boolean.valueOf(args[3]);
+            boolean removeLoopActivities = Boolean.valueOf(args[4]);
 
             SplitMiner yam = new SplitMiner();
-            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[5]);
             long etime = System.currentTimeMillis();
-            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, true, SplitMinerUIResult.StructuringTime.NONE);
+            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst, replaceIORs, removeLoopActivities, SplitMinerUIResult.StructuringTime.NONE);
             etime = System.currentTimeMillis() - etime;
 
             System.out.println("eTIME - " + (double)etime/1000.0 + "s");
@@ -243,7 +338,7 @@ public class ServiceProvider {
             BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
             UIContext context = new UIContext();
             UIPluginContext uiPluginContext = context.getMainPluginContext();
-            bpmnExportPlugin.export(uiPluginContext, output, new File(args[4] + ".bpmn"));
+            bpmnExportPlugin.export(uiPluginContext, output, new File(args[6] + ".bpmn"));
             return;
         } catch (Throwable e) {
             System.out.println("ERROR: wrong usage.");

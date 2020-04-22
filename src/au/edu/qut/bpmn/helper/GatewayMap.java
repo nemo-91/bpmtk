@@ -713,9 +713,11 @@ public class GatewayMap {
 //            but mutually exclusive, we set the IOR as XOR.
 //            otherwise we apply Haven & Volzer algorithm for IOR replacement
             if( checkXOR(visitedGates, visitedFlows, ANDs) ) {
-//                System.out.println("DEBUG - found a XOR");
-                return Gateway.GatewayType.DATABASED;
+//                System.out.println("DEBUG - hello!? found a XOR");
+                return Gateway.GatewayType.INCLUSIVE;
             }
+
+            if( !applyHagen ) return Gateway.GatewayType.INCLUSIVE;
 
             changes = new HashMap<>();
             loopChanges = new ArrayList<>();
@@ -735,8 +737,6 @@ public class GatewayMap {
                     }
                 }
             }
-
-            if( !applyHagen ) return Gateway.GatewayType.INCLUSIVE;
 
 //            at this point, we have to deal with the loop-injections inside this fragment,
 //            we have collected these during the backward exploration
@@ -768,14 +768,19 @@ public class GatewayMap {
         HashMap<Gateway, HashMap<Gateway, IntHashSet>> visitedEdgesIDs = new HashMap<>();
         HashMap<Gateway, HashMap<Gateway, IntHashSet>> unvisitedEdgesIDs = new HashMap<>();
 //        System.out.println("DEBUG - ANDs: " + ANDs.size());
+//        ANDs is the set of the AND-splits that we encountered between the IOR and its dominator
         for( Gateway and : ANDs ) {
 //            System.out.println("DEBUG - visiting AND: " + and.getLabel());
             visitedEdgesIDs.put(and, new HashMap<Gateway, IntHashSet>());
             unvisitedEdgesIDs.put(and, new HashMap<Gateway, IntHashSet>());
+//            visitedGates is the set of all the gateways encountered between the IOR and its dominator
             for( Gateway xor : visitedGates.keySet() ) {
 //                System.out.println("DEBUG - XOR: " + xor.getLabel());
+//                V1 contains all the outgoing flows of an AND gateway that are incoming to this XOR gateway
                 V1 = new IntHashSet();
+//                U1 contains all the outgoing flows of an AND gateway that are incoming to a different XOR gateway
                 U1 = new IntHashSet();
+//                visited flows of a certain gateway are the incoming edges to that gateway, because we are doing a backward exploration
                 V = visitedFlows.get(xor);
                 for( GatewayMapFlow oe : outgoings.get(and) ) {
                     if( V.contains(oe) ) V1.add(oe.id);

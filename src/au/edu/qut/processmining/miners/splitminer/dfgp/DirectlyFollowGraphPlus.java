@@ -20,6 +20,7 @@
 
 package au.edu.qut.processmining.miners.splitminer.dfgp;
 
+import au.edu.qut.processmining.log.ComplexLog;
 import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 
@@ -52,11 +53,15 @@ public class DirectlyFollowGraphPlus {
     private Set<Integer> loopsL1;
     private Set<DFGEdge> loopsL2;
     private Map<Integer, HashSet<Integer>> parallelisms;
+    private double[] concurrencyMatrix;
     private Set<DFGEdge> bestEdges;
     private Set<DFGEdge> untouchableEdges;
+    private Set<DFGEdge> potentialConcurrency;
 
     private double percentileFrequencyThreshold;
     private double parallelismsThreshold;
+//    this threshold is used only for ComplexLogs in input
+    private double concurrencyThreshold;
     private DFGPUIResult.FilterType filterType;
     private int filterThreshold;
 //    private boolean percentileOnBest;
@@ -67,6 +72,12 @@ public class DirectlyFollowGraphPlus {
 
     public DirectlyFollowGraphPlus(SimpleLog log) {
         this(log, DFGPUIResult.FREQUENCY_THRESHOLD, DFGPUIResult.PARALLELISMS_THRESHOLD, DFGPUIResult.STD_FILTER, DFGPUIResult.PARALLELISMS_FIRST);
+    }
+
+
+    public DirectlyFollowGraphPlus(SimpleLog log, double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst, double auxiliary) {
+        this(log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
+        this.concurrencyThreshold = auxiliary;
     }
 
     public DirectlyFollowGraphPlus(SimpleLog log, double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst) {
@@ -107,6 +118,10 @@ public class DirectlyFollowGraphPlus {
     public int getEndcode() { return endcode; }
     public Set<Integer> getLoopsL1() { return loopsL1; }
     public Map<Integer, HashSet<Integer>> getParallelisms() { return parallelisms; }
+    public int[] getConcurrencyMatrix() {
+        if( log instanceof ComplexLog ) return ((ComplexLog) log).getConcurrencyMatrix();
+        else return new int[log.getEvents().size()*log.getEvents().size()];
+    }
 
     public BPMNDiagram getDFG() {
         buildDirectlyFollowsGraph();
@@ -163,17 +178,51 @@ public class DirectlyFollowGraphPlus {
         return diagram;
     }
 
+    public BPMNDiagram convertIntoBPMNDiagramWithOriginalLabels() {
+        BPMNDiagram diagram = new BPMNDiagramImpl("eDFGP-diagram");
+        HashMap<Integer, BPMNNode> mapping = new HashMap<>();
+        String label;
+        BPMNNode node;
+        BPMNNode src, tgt;
+
+        for( int event : nodes.keySet() ) {
+            label = nodes.get(event).getLabel();
+
+            if( event == startcode || event == endcode )
+                node = diagram.addEvent(label, (event == startcode ? Event.EventType.START : Event.EventType.END), Event.EventTrigger.NONE, (event == startcode ? Event.EventUse.CATCH : Event.EventUse.THROW), true, null);
+            else
+                node = diagram.addActivity(label, loopsL1.contains(event), false, false, false, false);
+
+            mapping.put(event, node);
+        }
+
+        for( DFGEdge edge : edges ) {
+            src = mapping.get(edge.getSourceCode());
+            tgt = mapping.get(edge.getTargetCode());
+            diagram.addFlow(src, tgt, edge.toString());
+        }
+
+        return diagram;
+    }
+
     public boolean areConcurrent(int A, int B) {
+//        if( log instanceof ComplexLog ) return concurrencyMatrix[A*log.getEvents().size() +B] > parallelismsThreshold;
         return (parallelisms.containsKey(A) && parallelisms.get(A).contains(B));
     }
 
     public void buildDFGP() {
         System.out.println("DFGP - settings > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
-        untouchableEdges = new HashSet<>();
+        untouchableEdges = null;
 
-        buildDirectlyFollowsGraph();                //first method to execute
-        detectLoops();                              //depends on buildDirectlyFollowsGraph()
-        detectParallelisms();                       //depends on detectLoops()
+        if(log instanceof ComplexLog) {
+            buildDFGfromComplexLog();
+            detectLoops();          //depends on buildDirectlyFollowsGraph()
+            detectParallelismsFromComplexLog();
+        } else {
+            buildDirectlyFollowsGraph();
+            detectLoops();          //depends on buildDirectlyFollowsGraph()
+            detectParallelisms();   //depends on detectLoops()
+        }
 
         switch(filterType) {                        //depends on detectParallelisms()
             case FWG:
@@ -223,6 +272,61 @@ public class DirectlyFollowGraphPlus {
 
     }
 
+    public void buildDFGfromComplexLog() {
+        ComplexLog cLog = (ComplexLog) log;
+        long removedEdges = 0;
+
+        nodes = new HashMap<>();
+        edges = new HashSet<>();
+        outgoings = new HashMap<>();
+        incomings = new HashMap<>();
+        dfgp = new HashMap<>();
+        potentialConcurrency = new HashSet<>();
+        loopsL1 = new HashSet<>();
+
+        cLog.printConcurrencyMatrix();
+        cLog.printRelativeConcurrencyMatrix();
+        this.concurrencyMatrix = cLog.getRelativeConcurrencyMatrix();
+
+        double[] relativeDFG = cLog.getRelativeDFG(); // not recommended its usage (21 Apr 2020)
+        int[] dfg = cLog.getDFG();
+        Map<Integer, String> events = cLog.getEvents();
+        int totalActivities = events.size();
+
+        DFGNode node;
+        DFGEdge edge;
+
+        cLog.printDFG();
+        cLog.printRelativeDFG();
+        for(int k=0; k < totalActivities; k++) {
+            node =  new DFGNode(events.get(k), k);
+            this.addNode(node);
+        }
+
+        for(int i=0; i < totalActivities; i++)
+            for(int j=0; j < totalActivities; j++)
+                if( dfg[i*totalActivities + j] > 0 ) {
+//                if( relativeDFG[i*totalActivities + j] > 0.1 ) {
+                    if(i==j) loopsL1.add(i);
+                    else {
+                        edge = new DFGEdge(nodes.get(i), nodes.get(j), dfg[i * totalActivities + j]);
+                        this.addEdge(edge);
+                        if (concurrencyMatrix[i * totalActivities + j] > parallelismsThreshold) {
+                            potentialConcurrency.add(edge);
+                            removedEdges++;
+                        }
+                    }
+                }
+
+        for(int k=0; k < totalActivities; k++)
+            if(incomings.get(k).size() == outgoings.get(k).size() && outgoings.get(k).size() == 0) {
+                System.out.println("DEBUG - node removed: "+ events.get(k) +" (" + k + ")");
+                this.removeNode(k);
+            }
+
+        System.out.println("DEBUG - potential parallelisms: " + removedEdges);
+    }
+
     public void buildDirectlyFollowsGraph() {
         Map<String, Integer> traces = log.getTraces();
         Map<Integer, String> events = log.getEvents();
@@ -245,6 +349,7 @@ public class DirectlyFollowGraphPlus {
         outgoings = new HashMap<>();
         incomings = new HashMap<>();
         dfgp = new HashMap<>();
+        loopsL1 = new HashSet<>();
 
         autogenStart = new DFGNode(events.get(startcode), startcode);
         this.addNode(autogenStart);
@@ -268,6 +373,11 @@ public class DirectlyFollowGraphPlus {
 //                we read the next event of the trace until it is finished
                 event = Integer.valueOf(trace.nextToken());
 
+                if(prevEvent == event) {
+                    loopsL1.add(event);
+                    continue;
+                }
+
                 if( !nodes.containsKey(event) ) {
                     node =  new DFGNode(events.get(event), event);
                     this.addNode(node);
@@ -290,7 +400,7 @@ public class DirectlyFollowGraphPlus {
         }
     }
 
-    private void detectLoops() {
+    public void detectLoops() {
         Map<String, Integer> traces = log.getTraces();
         HashSet<DFGEdge> removableLoopEdges = new HashSet();
 
@@ -306,26 +416,7 @@ public class DirectlyFollowGraphPlus {
 
         int loop2score;
 
-        loopsL1 = new HashSet<>();
         loopsL2 = new HashSet<>();
-
-//        System.out.println("DFGP - evaluating loops length ONE ...");
-        for( DFGEdge e : edges ) {
-            src = e.getSourceCode();
-            tgt = e.getTargetCode();
-            if( src == tgt ) {
-                loopsL1.add(src);
-                removableLoopEdges.add(e);
-            }
-        }
-
-//        we removed the loop length 1 edges, because late we will just mark them as self-loop activities
-//        System.out.println("DFGP - loops length ONE found: " + loopsL1.size());
-        for( DFGEdge e : removableLoopEdges ) this.removeEdge(e, false);
-
-//        System.out.println("DEBUG - found " + loopsL1.size() + " self-loops:");
-//        for( int code : loopsL1 ) System.out.println("DEBUG - self-loop: " + code);
-
         for( DFGEdge e1 : edges )  {
             src = e1.getSourceCode();
             tgt = e1.getTargetCode();
@@ -360,7 +451,38 @@ public class DirectlyFollowGraphPlus {
 //        System.out.println("DFGP - loops length TWO found: " + loopsL2.size()/2);
     }
 
-    private void detectParallelisms() {
+    public void detectParallelismsFromComplexLog() {
+        int confirmedParallelisms = 0;
+
+        int src;
+        int tgt;
+
+        parallelisms = new HashMap<>();
+
+        ArrayList<DFGEdge> orderedRemovableEdges = new ArrayList<>(potentialConcurrency);
+        Collections.sort(orderedRemovableEdges);
+        while( !orderedRemovableEdges.isEmpty() ) {
+            DFGEdge re = orderedRemovableEdges.remove(0);
+            src = re.getSourceCode();
+            tgt = re.getTargetCode();
+            if (!this.removeEdge(re, true)) {
+//                System.out.println("DEBUG - impossible remove: " + re.print());
+                if (parallelisms.containsKey(src)) parallelisms.get(src).remove(tgt);
+                if (parallelisms.containsKey(tgt)) parallelisms.get(tgt).remove(src);
+                if ((re = dfgp.get(tgt).get(src)) != null) this.removeEdge(re, true);
+            } else {
+                confirmedParallelisms++;
+                if (!parallelisms.containsKey(src)) parallelisms.put(src, new HashSet<>());
+                parallelisms.get(src).add(tgt);
+                if (!parallelisms.containsKey(tgt)) parallelisms.put(tgt, new HashSet<>());
+                parallelisms.get(tgt).add(src);
+            }
+        }
+
+        System.out.println("DEBUG - removed parallelism edges: " + confirmedParallelisms);
+    }
+
+    public void detectParallelisms() {
 //        int totalParallelisms = 0;
 //        int confirmedParallelisms = 0;
 //        int notParallel = 0;
@@ -456,7 +578,10 @@ public class DirectlyFollowGraphPlus {
         bestEdges = new HashSet<>();
 
         for( int node : nodes.keySet() ) {
-            if( node != endcode ) bestEdges.add(Collections.max(outgoings.get(node)));
+            if( node != endcode ) {
+//                System.out.println("DEBUG - node (max, " + endcode + " ): " + node);
+                bestEdges.add(Collections.max(outgoings.get(node)));
+            }
             if( node != startcode ) bestEdges.add(Collections.max(incomings.get(node)));
         }
     }
@@ -679,11 +804,11 @@ public class DirectlyFollowGraphPlus {
     private boolean removeEdge(DFGEdge e, boolean safe) {
         int src = e.getSourceCode();
         int tgt = e.getTargetCode();
-        if( (incomings.get(tgt).size() == 1) || (outgoings.get(src).size() == 1) ) return false;
-        if( safe && untouchableEdges.contains(e) ) {
+        if( untouchableEdges != null && untouchableEdges.contains(e) ) {
             System.out.println("DEBUG - this edge ensures connectedness! not removable!");
             return false;
         }
+        if( safe && (incomings.get(tgt).size() == 1) || (outgoings.get(src).size() == 1) ) return false;
         incomings.get(tgt).remove(e);
         outgoings.get(src).remove(e);
         dfgp.get(src).remove(tgt);

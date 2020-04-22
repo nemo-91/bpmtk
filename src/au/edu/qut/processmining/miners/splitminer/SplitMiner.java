@@ -77,6 +77,12 @@ public class SplitMiner {
         this.structuringTime = SplitMinerUIResult.StructuringTime.NONE;
     }
 
+    public SplitMiner(boolean replaceIORs, boolean removeLoopActivities) {
+        this.replaceIORs = replaceIORs;
+        this.removeLoopActivities = removeLoopActivities;
+        this.structuringTime = SplitMinerUIResult.StructuringTime.NONE;
+    }
+
     public DirectlyFollowGraphPlus getDFGP() { return dfgp; }
 
     public BPMNDiagram getBPMNDiagram() { return bpmnDiagram; }
@@ -106,7 +112,7 @@ public class SplitMiner {
                 if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
             } catch ( Exception ee ) {
                 System.out.println("ERROR - nothing to do, returning the bare DFGP");
-                return dfgp.convertIntoBPMNDiagram();
+                return dfgp.convertIntoBPMNDiagramWithOriginalLabels();
             }
         }
 
@@ -138,7 +144,7 @@ public class SplitMiner {
                 if (structuringTime == SplitMinerUIResult.StructuringTime.POST) structure();
             } catch ( Exception ee ) {
                 System.out.println("ERROR - nothing to do, returning the bare DFGP");
-                return dfgp.convertIntoBPMNDiagram();
+                return dfgp.convertIntoBPMNDiagramWithOriginalLabels();
             }
         }
 
@@ -159,7 +165,7 @@ public class SplitMiner {
         } catch(Exception e) {
             System.out.println("ERROR - something went wrong translating DFG to BPMN");
             e.printStackTrace();
-            return dfgp.convertIntoBPMNDiagram();
+            return dfgp.convertIntoBPMNDiagramWithOriginalLabels();
         }
         return bpmnDiagram;
     }
@@ -174,30 +180,17 @@ public class SplitMiner {
 
     private void transformDFGPintoBPMN() {
         DiagramHandler helper = new DiagramHandler();
-        HashMap<Integer, BPMNNode> mapping = new HashMap<>();
         BPMNNode entry = null;
         BPMNNode exit = null;
 
-        BPMNNode tgt;
+//        System.out.println("SplitMiner - generating bpmn diagram");
+
         gateCounter = Integer.MIN_VALUE;
-
-        ArrayList<BPMNNode> toVisit = new ArrayList<>();
-        HashSet<BPMNNode> visited = new HashSet<>();
-
-        HashSet<Integer> successors;
-        HashSet<BPMNEdge<? extends BPMNNode, ? extends BPMNNode>> removableEdges;
-
-        Oracle oracle = new Oracle();
-        OracleItem oracleItem;
-        OracleItem finalOracleItem;
-        HashSet<OracleItem> oracleItems;
 
 //        we retrieve the starting BPMN diagram from the DFGP,
 //        it is a DFGP with start and end events, but no gateways
         bpmnDiagram = dfgp.convertIntoBPMNDiagram();
         candidateJoins = new HashMap<>();
-
-//        firstly we generate the split gateways
 
 //        there are only two events in the initial BPMN diagram,
 //        one is the START and by exclusion the second is the END
@@ -211,7 +204,56 @@ public class SplitMiner {
             return;
         }
 
-//        System.out.println("SplitMiner - generating bpmn diagram");
+//        we start the transformation of the DFGP into BPMN by generating the splits
+        generateSplits(entry, exit);
+
+//        after generating the split hierarchy we should have only SPLITs,
+//        however, it may happen that some JOINs are generated as well (due to shared future)
+//        it is important that we do not leave any gateway that is both a SPLIT and a JOIN
+        helper.removeJoinSplit(bpmnDiagram);
+
+//        at this point, all the splits were generated, along with just a few joins
+//        now we focus only on the joins. we use the RPST in order to place INCLUSIVE joins
+//        which will be turned into AND or XOR joins later
+//        System.out.println("SplitMiner - generating SESE joins ...");
+        bondsEntries = new HashSet<>();
+        rigidsEntries = new HashSet<>();
+        while( generateSESEjoins() );
+
+//        this second method adds the remaining joins, which were no entry neither exits of any RPST node
+//        System.out.println("SplitMiner - generating inner joins ...");
+        generateInnerJoins();
+
+//        if( structuringTime == SplitMinerUIResult.StructuringTime.PRE ) structure();
+        helper.fixSoundness(bpmnDiagram);
+
+//        finally, we turn all the inclusive joins placed, into proper joins: ANDs or XORs
+//        System.out.println("SplitMiner - turning inclusive joins ...");
+        replaceIORs();
+
+        updateLabels(this.log.getEvents());
+
+//            helper.collapseSplitGateways(bpmnDiagram);
+//            helper.collapseJoinGateways(bpmnDiagram);
+
+        if(removeLoopActivities) helper.removeLoopActivityMarkers(bpmnDiagram);
+
+//        System.out.println("SplitMiner - bpmn diagram generated successfully");
+    }
+
+    private void generateSplits(BPMNNode entry, BPMNNode exit) {
+        HashMap<Integer, BPMNNode> mapping = new HashMap<>();
+        BPMNNode tgt;
+        ArrayList<BPMNNode> toVisit = new ArrayList<>();
+        HashSet<BPMNNode> visited = new HashSet<>();
+
+        HashSet<Integer> successors;
+        HashSet<BPMNEdge<? extends BPMNNode, ? extends BPMNNode>> removableEdges;
+
+        Oracle oracle = new Oracle();
+        OracleItem oracleItem;
+        OracleItem finalOracleItem;
+        HashSet<OracleItem> oracleItems;
 
 //        we perform a breadth-first exploration of the DFGP-diagram
 //        every time we find a node with multiple outgoing edges we stop
@@ -274,44 +316,6 @@ public class SplitMiner {
                 if( !toVisit.contains(tgt) && !visited.contains(tgt) ) toVisit.add(tgt);
             }
         }
-
-//        after generating the split hierarchy we should have only SPLITs,
-//        however, it may happen that some JOINs are generated as well (due to shared future)
-//        it is important that we do not leave any gateway that is both a SPLIT and a JOIN
-        helper.removeJoinSplit(bpmnDiagram);
-
-//        at this point, all the splits were generated, along with just a few joins
-//        now we focus only on the joins. we use the RPST in order to place INCLUSIVE joins
-//        which will be turned into AND or XOR joins later
-        bondsEntries = new HashSet<>();
-        rigidsEntries = new HashSet<>();
-//        System.out.println("SplitMiner - generating SESE joins ...");
-        while( generateSESEjoins() );
-
-//        this second method adds the remaining joins, which were no entry neither exits of any RPST node
-//        System.out.println("SplitMiner - generating inner joins ...");
-        generateInnerJoins();
-
-        if( structuringTime == SplitMinerUIResult.StructuringTime.PRE ) structure();
-        helper.fixSoundness(bpmnDiagram);
-
-//        finally, we turn all the inclusive joins placed, into proper joins: ANDs or XORs
-//        System.out.println("SplitMiner - turning inclusive joins ...");
-        replaceIORs();
-
-        updateLabels(this.log.getEvents());
-
-        if(removeLoopActivities) helper.removeLoopActivityMarkers(bpmnDiagram);
-
-        if( replaceIORs ) {
-            helper.collapseSplitGateways(bpmnDiagram);
-            helper.collapseJoinGateways(bpmnDiagram);
-        } else {
-            helper.collapseSplitGateways(bpmnDiagram);
-            helper.collapseJoinGateways(bpmnDiagram);
-        }
-
-//        System.out.println("SplitMiner - bpmn diagram generated successfully");
     }
 
     private void generateSplitsHierarchy(BPMNNode entry, OracleItem nextOracleItem, Map<Integer, BPMNNode> mapping) {
