@@ -23,8 +23,11 @@ package au.edu.qut.processmining.miners.splitminer;
 import au.edu.qut.bpmn.helper.DiagramHandler;
 import au.edu.qut.bpmn.helper.GatewayMap;
 import au.edu.qut.bpmn.structuring.StructuringService;
+import au.edu.qut.processmining.log.ComplexLog;
 import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
+import au.edu.qut.processmining.miners.splitminer.dfgp.DFGEdge;
+import au.edu.qut.processmining.miners.splitminer.dfgp.DFGNode;
 import au.edu.qut.processmining.miners.splitminer.dfgp.DirectlyFollowGraphPlus;
 import au.edu.qut.processmining.miners.splitminer.oracle.Oracle;
 import au.edu.qut.processmining.miners.splitminer.oracle.OracleItem;
@@ -40,6 +43,9 @@ import de.hpi.bpt.graph.algo.rpst.RPSTNode;
 import de.hpi.bpt.graph.algo.tctree.TCType;
 import de.hpi.bpt.hypergraph.abs.Vertex;
 
+import de.hpi.bpt.process.petri.util.BisimilarityChecker;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.model.XLog;
 
@@ -69,7 +75,6 @@ public class SplitMiner {
 
     private Set<Gateway> bondsEntries;
     private Set<Gateway> rigidsEntries;
-
 
     public SplitMiner() {
         this.replaceIORs = true;
@@ -153,6 +158,7 @@ public class SplitMiner {
 
     private void generateDFGP(double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst) {
         dfgp = new DirectlyFollowGraphPlus(log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
+        dfgp.setOracle(!parallelismsFirst);
         dfgp.buildDFGP();
     }
 
@@ -205,6 +211,7 @@ public class SplitMiner {
         }
 
 //        we start the transformation of the DFGP into BPMN by generating the splits
+//        generateBitmatrixSplits();
         generateSplits(entry, exit);
 
 //        after generating the split hierarchy we should have only SPLITs,
@@ -225,11 +232,12 @@ public class SplitMiner {
         generateInnerJoins();
 
 //        if( structuringTime == SplitMinerUIResult.StructuringTime.PRE ) structure();
+        helper.removeEmptyParallelFlows(bpmnDiagram);
         helper.fixSoundness(bpmnDiagram);
 
 //        finally, we turn all the inclusive joins placed, into proper joins: ANDs or XORs
 //        System.out.println("SplitMiner - turning inclusive joins ...");
-        replaceIORs();
+        replaceIORs(helper);
 
         updateLabels(this.log.getEvents());
 
@@ -354,6 +362,291 @@ public class SplitMiner {
         candidateJoins.put(nextOracleItem.toString(), gate);
     }
 
+/*
+    private void generateBitmatrixSplits() {
+//      METHOD-DEPENDENT DATA STRUCTURES
+
+//        for each split task, we have a matrix of bits, each column being a combination of successors tasks that are executed
+        HashMap<Integer, Matrix> splitMaps = new HashMap<>();
+//        for each split task, we have an array storing the successors ids
+//        we query the array to know the index of the successor to update accordingly the row of a matrix
+        HashMap<Integer, ArrayList<Integer>> successors = new HashMap<>();
+
+//        these two structures keep track of the mapping between integer successors codes and the BPMN nodes
+//        as well as the incoming edge of each successor, this is fundamental to edit the BPMN diagram later
+        HashMap<Integer, BPMNNode> successorsToNodes = new HashMap<>();
+        HashMap<Integer, BPMNEdge<? extends BPMNNode, ? extends BPMNNode>> successorsToEdges = new HashMap<>();
+
+//      TRACE-DEPENDENT DATA STRUCTURES
+
+//        while parsing each trace, we have to keep track of all the split tasks that we encountered
+//        then for each of them, if we see one of their successors, we update their bit set
+        HashMap<Integer, BitSet> splitTasksInTrace = new HashMap<>();
+//        for each encountered split task, we remember how far in time we encountered it
+//        we can set a max distance after which we do not update anymore the bitarray for that split task
+        HashMap<Integer, Integer> distances = new HashMap<>();
+
+
+        StringTokenizer trace;
+        int traceFrequency;
+        int event;
+        int MAXD = 4;
+        int skipcounter =0;
+        int i;
+
+        Map<String, Integer> traces = log.getTraces();
+
+        int size;
+        int TID; // this is the split task ID
+        int SID; // tmp successors ID
+        ArrayList<Integer> tmpSuccessors;
+        for(BPMNNode n : bpmnDiagram.getNodes())
+            if((size = bpmnDiagram.getOutEdges(n).size()) > 1) {
+                TID = Integer.valueOf(n.getLabel());
+                splitMaps.put(TID, new Matrix(size));
+
+                tmpSuccessors = new ArrayList<>(size);
+                for(BPMNEdge<? extends BPMNNode, ? extends BPMNNode> e : bpmnDiagram.getOutEdges(n)) {
+                    SID = Integer.valueOf(e.getTarget().getLabel());
+                    tmpSuccessors.add(SID);
+                    splitMaps.get(TID).addSuccessor(SID);
+                    successorsToNodes.put(SID, e.getTarget());
+                    successorsToEdges.put(SID, e);
+                }
+                successors.put(TID, tmpSuccessors);
+            }
+
+
+        for( String t : traces.keySet() ) {
+            trace = new StringTokenizer(t, "::");
+            traceFrequency = traces.get(t);
+            splitTasksInTrace.clear();
+
+//            consuming the start event that is always 0
+//            we assume that the start event is not a successor of any split or a split itself
+            trace.nextToken();
+            while( trace.hasMoreTokens() ) {
+                event = Integer.valueOf(trace.nextToken());
+                if (splitMaps.containsKey(event)) {
+                    distances.put(event, 0); // not sure we need this, for the moment we keep it
+                    if (!splitTasksInTrace.containsKey(event)) splitTasksInTrace.put(event, new BitSet());
+                }
+
+                for( int sti : splitTasksInTrace.keySet() ) {
+//                    we now scan all the split tasks that we encountered so far
+//                    however, split task executed too long ago or same of the current event are not taken into account
+//                    distances.put(sti, distances.get(sti)+1);
+                    if( distances.get(sti) > MAXD ||  event == sti ) {
+                        skipcounter++;
+                        continue;
+                    }
+//                    if the current event is a successor for one or more of them (in which case the event is also a join)
+//                    we update the observation bitset of the split task for this trace
+                    if( (i = successors.get(sti).indexOf(event)) != -1 ) splitTasksInTrace.get(sti).set(i);
+                }
+            }
+
+//            once the whole trace has been parsed, we add the bitset of each split task to its matrix of bitsets
+            for( int sti : splitTasksInTrace.keySet() ) splitMaps.get(sti).addBitset(splitTasksInTrace.get(sti), traceFrequency);
+        }
+
+        for( int sti : splitMaps.keySet() )
+            generateSplitsHierarchyFromObservationMatrix(sti, splitMaps.get(sti), successorsToNodes, successorsToEdges);
+
+        System.out.println("DEBUG - skipcounter = " + skipcounter);
+    }
+
+    private void generateSplitsHierarchyFromObservationMatrix(int split, Matrix matrix, HashMap<Integer, BPMNNode> successorsToNodes, HashMap<Integer, BPMNEdge<? extends BPMNNode, ? extends BPMNNode>> successorsToEdges) {
+        boolean print = true;
+
+        System.out.println("DEBUG - Matrix of Split Task: " + log.getEvents().get(split) + " (" + split + ")");
+//        matrix.print();
+//        matrix.prune(0.30);
+
+        HashMap<Integer, BitSet> transposedMatrix = new HashMap<>();
+        int ROWS = matrix.rows();
+
+//      first we transpose the matrix
+        for(int i = 0; i< matrix.totalSuccessors(); i++)
+            transposedMatrix.put(matrix.successors[i], new BitSet(ROWS));
+
+        int r = 0; // row = bitset
+        for(BitSet bs : matrix.matrix.keySet()) {
+            int sl = 0; // location of the successor in the current biset
+            for( ; sl<matrix.totalSuccessors(); sl++)
+                transposedMatrix.get(matrix.successors[sl]).set(r, bs.get(sl));
+            r++;
+        }
+//      transposition is over
+
+        if(print) {
+            System.out.println("DEBUG - transposed matrix");
+            for (int s : transposedMatrix.keySet()) {
+                System.out.print("S: " + s + " :");
+                for (int si = 0; si < ROWS; si++) {
+                    if (transposedMatrix.get(s).get(si)) System.out.print("1");
+                    else System.out.print("0");
+                }
+                System.out.println();
+            }
+        }
+
+//        we compare the successors observations in the same trace
+        Set<Pair<Integer,Integer>> ANDs = new HashSet<>();
+        Set<Pair<Integer,Integer>> SANDs = new HashSet<>();
+        Set<Pair<Integer,Integer>> XORs = new HashSet<>();
+        Set<Pair<Integer,Integer>> ORs = new HashSet<>();
+        Set<Integer> skips = new HashSet<>();
+        BitSet bs0, bs1, bs2;
+        Set<Integer> removableSuccessors = new HashSet<>();
+        Set<Integer> analysed = new HashSet<>();
+        Gate type;
+        do {
+            System.out.println("DEBUG - new round of discovery");
+            for (int s1 : transposedMatrix.keySet()) {
+                bs1 = transposedMatrix.get(s1);
+                analysed.add(s1);
+                for (int s2 : transposedMatrix.keySet()) {
+                    if( analysed.contains(s2) ) continue;
+                    bs2 = transposedMatrix.get(s2);
+                    type = determineGateway(s1, s2, bs1, bs2, ROWS, skips);
+                    switch (type) {
+                        case SAND:
+                            SANDs.add(new ImmutablePair<>(s1,s2));
+                            break;
+                        case AND:
+                            ANDs.add(new ImmutablePair<>(s1,s2));
+                            break;
+                        case XOR:
+                            XORs.add(new ImmutablePair<>(s1,s2));
+                            break;
+                        case OR:
+                            ORs.add(new ImmutablePair<>(s1,s2));
+                            break;
+                    }
+                }
+            }
+
+//            first we check if we found ANDs
+            for(Pair<Integer,Integer> p : ANDs) {
+                if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+//                when we find an AND we can remove one of the two without any issues
+                bs1 = transposedMatrix.get(p.getLeft());
+                removableSuccessors.add(p.getLeft());
+                removableSuccessors.add(p.getRight());
+                bs0 = new BitSet();
+                for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i));
+                transposedMatrix.put(p.getLeft()*100, bs0);
+                System.out.println("DEBUG - AND("+ p.getLeft() + "," + p.getRight() + ")");
+            }
+
+            if(ANDs.isEmpty()) {
+//            then we check for XORs
+                for (Pair<Integer, Integer> p : XORs) {
+                    if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+                    System.out.println("DEBUG - XOR("+ p.getLeft() + "," + p.getRight() + ")");
+//                when we find an XOR....
+                    bs1 = transposedMatrix.get(p.getLeft());
+                    bs2 = transposedMatrix.get(p.getRight());
+                    removableSuccessors.add(p.getLeft());
+                    removableSuccessors.add(p.getRight());
+                    bs0 = new BitSet();
+                    for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i) || bs2.get(i));
+                    transposedMatrix.put(p.getLeft()*100, bs0);
+                }
+
+                if (XORs.isEmpty()) {
+//            then we consider ORs
+                    for (Pair<Integer, Integer> p : ORs) {
+                        if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+                        System.out.println("DEBUG - OR("+ p.getLeft() + "," + p.getRight() + ")");
+//                when we find an OR...
+                        bs1 = transposedMatrix.get(p.getLeft());
+                        bs2 = transposedMatrix.get(p.getRight());
+                        removableSuccessors.add(p.getLeft());
+                        removableSuccessors.add(p.getRight());
+                        bs0 = new BitSet();
+                        for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i) || bs2.get(i));
+                        transposedMatrix.put(p.getLeft()*100, bs0);
+                    }
+
+                    if(ORs.isEmpty()) {
+//                        finally we consider ANDs with skips
+                        for (Pair<Integer, Integer> p : SANDs) {
+                            if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+                            bs1 = transposedMatrix.get(p.getLeft());
+                            bs2 = transposedMatrix.get(p.getRight());
+                            removableSuccessors.add(p.getLeft());
+                            removableSuccessors.add(p.getRight());
+                            bs0 = new BitSet();
+
+                            if( skips.contains(p.getLeft()) ) {
+                                System.out.println("DEBUG - AND(SKIP(" + p.getLeft() + ")," + p.getRight() + ")");
+                                for (int i = 0; i < ROWS; i++) bs0.set(i, bs2.get(i));
+                            } else {
+                                System.out.println("DEBUG - AND("+ p.getLeft() + ",SKIP(" + p.getRight() + "))");
+                                for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i));
+                            }
+                            transposedMatrix.put(p.getLeft()*100, bs0);
+                        }
+                    }
+                }
+            }
+
+            for( int rs : removableSuccessors ) transposedMatrix.remove(rs);
+            removableSuccessors.clear();
+            analysed.clear();
+            ANDs.clear();
+            ORs.clear();
+            XORs.clear();
+            SANDs.clear();
+        } while (transposedMatrix.size() > 1);
+
+    }
+
+    private Gate determineGateway(int s1, int s2, BitSet bs1, BitSet bs2, int size, Set<Integer> skips) {
+        Gate type = Gate.OR;
+        boolean safe = true;
+        int mismatch = 0;
+        int match = 0;
+
+        Set<Pair<Boolean, Boolean>> observations = new HashSet<>();
+        for(int i = 0; i<size; i++)
+            observations.add(new ImmutablePair<>(bs1.get(i),bs2.get(i)));
+
+        if( observations.remove(new ImmutablePair<>(false, false)) ) size--;
+        if(observations.size() >= 3) return Gate.OR;
+
+//        if all the observations match, we have an AND
+        for(Pair<Boolean, Boolean> p : observations)
+            if(p.getLeft() == p.getRight()) match++;
+            else mismatch++;
+
+        if(match == size) return Gate.AND;
+        if(safe && (s1 < 0) || (s2 < 0) ) return Gate.XOR; // this is to play safe with successor-joins
+
+//        otherwise we could have a XOR or OR
+        Pair<Boolean, Boolean> skipL = new ImmutablePair<>(false, true);
+        Pair<Boolean, Boolean> skipR = new ImmutablePair<>(true, false);
+        Pair<Boolean, Boolean> skipNone = new ImmutablePair<>(true, true);
+//        Pair<Boolean, Boolean> skipBoth = new ImmutablePair<>(false, false);
+
+        if(observations.contains(skipL) && observations.contains(skipNone)) {
+            skips.add(s1);
+            return Gate.SAND;
+        }
+
+        if(observations.contains(skipR) && observations.contains(skipNone)) {
+            skips.add(s2);
+            return Gate.SAND;
+        }
+
+        if(observations.contains(skipL) && observations.contains(skipR)) return Gate.XOR;
+        else return Gate.OR;
+
+
+    }
+*/
     private boolean generateSESEjoins() {
         int counter = 0;
         HashSet<String> changed = new HashSet<>();
@@ -470,6 +763,7 @@ public class SplitMiner {
 //                if we are analysing a RIGID, we cannot match the join with the split
 //                otherwise, if it is the case of a BOND, we can
                 gType = isRigid ? Gateway.GatewayType.INCLUSIVE : gates.get(matchingGate);
+                gType = isLoop ? Gateway.GatewayType.DATABASED : gType;
 //                gType = Gateway.GatewayType.INCLUSIVE; // decomment this in case of debugging for incorrect gateways types
 
 //                if we already turned this activity into a gateway, we cannot edit it anymore
@@ -551,12 +845,41 @@ public class SplitMiner {
 //        System.out.println("DEBUG - inner joins placed: " + counter );
     }
 
-    private void replaceIORs() {
+    private void replaceIORs(DiagramHandler helper) {
         bondsEntries.removeAll(rigidsEntries);
         GatewayMap gatemap = new GatewayMap(bondsEntries, replaceIORs);
 //        System.out.println("DEBUG - doing the magic ...");
-        if( gatemap.generateMap(bpmnDiagram) ) gatemap.detectAndReplaceIORs();
-        else System.out.println("ERROR - something went wrong initializing the gateway map");
+        if( gatemap.generateMap(bpmnDiagram) ) {
+            gatemap.detectAndReplaceIORs();
+            gatemap.checkANDLoops(true);
+        } else System.out.println("ERROR - something went wrong initializing the gateway map");
+
+        int counter;
+        int[] potentialORs;
+        int src, tgt, i;
+        boolean ORs = false;
+        if(!replaceIORs && log instanceof ComplexLog) {
+            potentialORs = ((ComplexLog) log).getPotentialORs();
+            for( Gateway g : bpmnDiagram.getGateways() ) {
+                if( g.getGatewayType() == Gateway.GatewayType.PARALLEL && bpmnDiagram.getOutEdges(g).size() > 1 ) {
+                    counter = 0;
+                    for( BPMNEdge<? extends BPMNNode, ? extends BPMNNode> oe1 : bpmnDiagram.getOutEdges(g) )
+                        for( BPMNEdge<? extends BPMNNode, ? extends BPMNNode> oe2 : bpmnDiagram.getOutEdges(g) )
+                            if( oe1.getTarget() == oe2.getTarget() ) continue;
+                            else {
+                                src = Integer.valueOf(oe1.getTarget().getLabel());
+                                tgt = Integer.valueOf(oe2.getTarget().getLabel());
+                                i = (src*(log.getEndcode()+1)) + tgt;
+                                if( potentialORs[i] > 0 ) counter++;
+                            }
+                    if( counter > bpmnDiagram.getOutEdges(g).size() ) {
+                        ORs = true;
+                        g.setGatewayType(Gateway.GatewayType.INCLUSIVE);
+                    }
+                }
+            }
+            if(ORs) helper.matchORs(bpmnDiagram);
+        }
     }
 
     private void structure() {
@@ -594,3 +917,4 @@ public class SplitMiner {
     }
 
 }
+

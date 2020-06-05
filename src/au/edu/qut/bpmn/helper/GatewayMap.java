@@ -69,6 +69,8 @@ public class GatewayMap {
     private Set<Gateway> bondsEntries;
     private boolean applyHagen;
 
+    private HashMap<Gateway, HashSet<GatewayMapFlow>> loopANDs;
+
 
     public GatewayMap(boolean applyHagen) {
         this.applyHagen = applyHagen;
@@ -714,7 +716,9 @@ public class GatewayMap {
 //            otherwise we apply Haven & Volzer algorithm for IOR replacement
             if( checkXOR(visitedGates, visitedFlows, ANDs) ) {
 //                System.out.println("DEBUG - hello!? found a XOR");
-                return Gateway.GatewayType.INCLUSIVE;
+//                THIS METHOD IS BUGGY, return INCLUSIVE to be sure not to break the final model
+                return Gateway.GatewayType.DATABASED;
+//                return Gateway.GatewayType.INCLUSIVE;
             }
 
             if( !applyHagen ) return Gateway.GatewayType.INCLUSIVE;
@@ -990,6 +994,51 @@ public class GatewayMap {
 
         map.get(entry).get(exit).remove(flow);
     }
+
+    public void checkANDLoops(boolean fix) {
+        loopANDs = new HashMap<>();
+        for( Gateway g : outgoings.keySet() ) {
+            if( g.getGatewayType() == Gateway.GatewayType.PARALLEL && outgoings.get(g).size() > 1 ) {
+                for( GatewayMapFlow gmf : outgoings.get(g) )
+                    if( gmf.isLoop() && gmf.getTarget().getGatewayType() == Gateway.GatewayType.DATABASED ) {
+                        System.out.println("DEBUG - found an AND with a loop-back outgoing edge (TGT = " + gmf.last.getLabel() + ")");
+                        if (!loopANDs.containsKey(g)) loopANDs.put(g, new HashSet<>());
+                        loopANDs.get(g).add(gmf);
+                    }
+
+                if(loopANDs.get(g) != null && loopANDs.get(g).size() == outgoings.get(g).size()) {
+                    g.setGatewayType(Gateway.GatewayType.DATABASED);
+                    loopANDs.remove(g);
+                }
+            }
+        }
+
+        Gateway xor;
+        BPMNNode first;
+        if(fix) {
+            for (Gateway g : loopANDs.keySet()) {
+                GID++;
+                xor = bpmnDiagram.addGateway("xor_" + GID, Gateway.GatewayType.DATABASED);
+
+                for (BPMNEdge<? extends BPMNNode, ? extends BPMNNode> ie : new HashSet<>(bpmnDiagram.getInEdges(g))) {
+                    bpmnDiagram.addFlow(ie.getSource(), xor, "");
+                    bpmnDiagram.removeEdge(ie);
+                }
+
+                bpmnDiagram.addFlow(xor, g, "");
+
+                for (GatewayMapFlow ogmf : loopANDs.get(g)) {
+                    first = ogmf.first;
+                    for (BPMNEdge<? extends BPMNNode, ? extends BPMNNode> oe : new HashSet<>(bpmnDiagram.getInEdges(first)))
+                        if (oe.getSource() == g) {
+                            bpmnDiagram.removeEdge(oe);
+                            bpmnDiagram.addFlow(xor, first, "");
+                        }
+                }
+            }
+        }
+    }
+
 
 
 //    supporting private classes

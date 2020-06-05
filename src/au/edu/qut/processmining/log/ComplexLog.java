@@ -13,6 +13,8 @@ public class ComplexLog extends SimpleLog {
     private int[] exclusiveness;
     private int[] activityObserved;
 
+    private int[] potentialORs;
+
     public ComplexLog(Map<String, Integer> traces, Map<Integer, String> events, XLog xlog) {
         super(traces, events, xlog);
     }
@@ -35,10 +37,16 @@ public class ComplexLog extends SimpleLog {
     public double[] getRelativeConcurrencyMatrix(){ return relativeConcurrencyMatrix; }
     public double[] getRelativeDFG(){ return relativeDFG; }
 
+    public int[] getPotentialORs() {
+        return potentialORs;
+    }
+    public void setPotentialORs(int[] potentialORs) {
+        this.potentialORs = potentialORs;
+    }
+
     public int[] getActivityObserved() {
         return activityObserved;
     }
-
     public void setActivityObserved(int[] activityObserved) {
         this.activityObserved = activityObserved;
     }
@@ -46,7 +54,6 @@ public class ComplexLog extends SimpleLog {
     public int[] getConcurrencyMatrix() {
         return concurrencyMatrix;
     }
-
     public void setConcurrencyMatrix(int[] concurrencyMatrix) {
         this.concurrencyMatrix = concurrencyMatrix;
     }
@@ -54,7 +61,6 @@ public class ComplexLog extends SimpleLog {
     public int[] getExclusiveness() {
         return exclusiveness;
     }
-
     public void setExclusiveness(int[] exclusiveness) {
         this.exclusiveness = exclusiveness;
     }
@@ -62,7 +68,6 @@ public class ComplexLog extends SimpleLog {
     public int[] getDFG() {
         return dfg;
     }
-
     public void setDFG(int[] dfg) {
         this.dfg = dfg;
     }

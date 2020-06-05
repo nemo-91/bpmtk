@@ -286,6 +286,7 @@ public class LogParser {
 
 // parallelism keep tracks of the real concurrencies
         int[] parallelism;
+        int[] potentialORs;
 
 // when real concurrencies are available, the directly-follow relations slightly differ from the simple case
 // requiring to capture them already at this stage
@@ -363,6 +364,7 @@ public class LogParser {
 //        this plus one accounts for the artificial end event
         totalActivities = events.size()+1;
 
+        potentialORs = new int[totalActivities*totalActivities];
         parallelism = new int[totalActivities*totalActivities];
         dfg = new int[totalActivities*totalActivities];
         activityObserved = new int[totalActivities];
@@ -376,6 +378,7 @@ public class LogParser {
             activityObserved[i] = 0;
             for (int j = 0; j < totalActivities; j++) {
                 dfg[i * totalActivities + j] = 0;
+                potentialORs[i * totalActivities + j] = 0;
                 parallelism[i * totalActivities + j] = 0;
                 exclusiveness[i * totalActivities + j] = 0;
             }
@@ -477,11 +480,14 @@ public class LogParser {
 
             for(int i=0; i<totalActivities; i++)
                 for(int j=0; j<i; j++) {
-                    if(exclusiveness[i*totalActivities + j] != 0 && parallelism[i*totalActivities + j] != 0)
-                        System.out.println("DEBUG - potential OR (" + exclusiveness[i*totalActivities + j]
-                                + "," + parallelism[i*totalActivities + j] +") " +
-                                "relation: " + events.get(i) + " - "+ i + " and " + events.get(j) + " - "+ j);
-                }
+                    if(exclusiveness[i*totalActivities + j] != 0 && parallelism[i*totalActivities + j] != 0) {
+                        potentialORs[i*totalActivities + j]++;
+                        potentialORs[j*totalActivities + i]++;
+//                        System.out.println("DEBUG - potential OR (" + exclusiveness[i*totalActivities + j] + "," + parallelism[i*totalActivities + j] +") " + "relation: " + events.get(i) + " - "+ i + " and " + events.get(j) + " - "+ j);
+                    }
+              }
+
+            ((ComplexLog)sLog).setPotentialORs(potentialORs);
 
         } else sLog = new SimpleLog(traces, events, log);
 

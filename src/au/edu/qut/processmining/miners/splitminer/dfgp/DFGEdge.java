@@ -28,31 +28,39 @@ import au.edu.qut.processmining.log.graph.LogEdge;
 public class DFGEdge extends LogEdge {
 
     private int frequency;
+    private boolean isLoop;
 
     public DFGEdge(DFGNode source, DFGNode target){
         super(source, target);
         frequency = 0;
+        isLoop = false;
     }
 
     public DFGEdge(DFGNode source, DFGNode target, String label){
         super(source, target, label);
         frequency = 0;
+        isLoop = false;
     }
 
     public DFGEdge(DFGNode source, DFGNode target, int frequency){
         super(source, target);
         this.frequency = frequency;
+        isLoop = false;
     }
 
     public DFGEdge(DFGNode source, DFGNode target, String label, int frequency){
         super(source, target, label);
         this.frequency = frequency;
+        isLoop = false;
     }
 
     public void increaseFrequency() { frequency++; }
     public void increaseFrequency(int amount) { frequency += amount; }
 
     public int getFrequency(){ return frequency; }
+
+    public void setLoop(boolean isLoop) { this.isLoop = isLoop; }
+    public boolean isLoop() { return isLoop; }
 
     @Override
     public String toString() { return Integer.toString(frequency); }

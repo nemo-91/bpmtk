@@ -252,8 +252,9 @@ public class DiagramHandler {
                 tgt = f.getTarget();
                 if( src instanceof Gateway &&
                     tgt instanceof Gateway &&
-                    ((Gateway) src).getGatewayType() == ((Gateway) tgt).getGatewayType() &&
-                    ((Gateway) src).getGatewayType() == Gateway.GatewayType.PARALLEL ) {
+//                    ((Gateway) src).getGatewayType() == ((Gateway) tgt).getGatewayType() &&
+                    ((Gateway) src).getGatewayType() == Gateway.GatewayType.PARALLEL &&
+                        diagram.getInEdges(tgt).size() > 1) {
                     toRemove.add(f);
                     System.out.println("DEBUG - removing empty parallel flow.");
                     toCheck.add((Gateway) src);
@@ -288,9 +289,7 @@ public class DiagramHandler {
                 }
             }
 
-            if( keepGoing ) {
-                for( Gateway g : toCheck ) checkFakeGateway(diagram, g);
-            }
+            if( keepGoing ) for( Gateway g : toCheck ) checkFakeGateway(diagram, g);
         } while( keepGoing );
     }
 
@@ -682,7 +681,76 @@ public class DiagramHandler {
                         case B:
                             Gateway entry = gates.get(n.getEntry().getName());
                             Gateway exit = gates.get(n.getExit().getName());
-                            exit.setGatewayType(entry.getGatewayType());
+                            if(!(exit.getGatewayType() == Gateway.GatewayType.PARALLEL))
+                                exit.setGatewayType(entry.getGatewayType());
+                            toAnalize.add(n);
+                            break;
+                        default:
+                    }
+                }
+                toAnalize.remove(root);
+            }
+
+        } catch (Exception e) {
+            System.out.println("WARNING - impossible fix soundness.");
+        }
+    }
+
+    public void matchORs(BPMNDiagram diagram) {
+        if(diagram == null) return;
+
+        try {
+            HashMap<BPMNNode, Vertex> mapping = new HashMap<BPMNNode, Vertex>();
+            HashMap<String, Gateway> gates = new HashMap<String, Gateway>();
+
+            IDirectedGraph<DirectedEdge, Vertex> graph = new DirectedGraph();
+            Vertex src;
+            Vertex tgt;
+
+            BPMNNode bpmnSRC;
+            BPMNNode bpmnTGT;
+
+            for (Flow f : diagram.getFlows((Swimlane) null)) {
+                bpmnSRC = f.getSource();
+                bpmnTGT = f.getTarget();
+                if (!mapping.containsKey(bpmnSRC)) {
+                    src = new Vertex(bpmnSRC.getId().toString());
+                    if (bpmnSRC instanceof Gateway) gates.put(bpmnSRC.getId().toString(), (Gateway) bpmnSRC);
+                    mapping.put(bpmnSRC, src);
+                } else src = mapping.get(bpmnSRC);
+
+                if (!mapping.containsKey(bpmnTGT)) {
+                    tgt = new Vertex(bpmnTGT.getId().toString());
+                    if (bpmnTGT instanceof Gateway) gates.put(bpmnTGT.getId().toString(), (Gateway) bpmnTGT);
+                    mapping.put(bpmnTGT, tgt);
+                } else tgt = mapping.get(bpmnTGT);
+
+                graph.addEdge(src, tgt);
+            }
+
+            RPST rpst = new RPST(graph);
+
+            RPSTNode root = rpst.getRoot();
+            LinkedList<RPSTNode> toAnalize = new LinkedList<RPSTNode>();
+            toAnalize.add(root);
+
+            while (toAnalize.size() != 0) {
+                root = toAnalize.pollFirst();
+
+                for (RPSTNode n : new HashSet<RPSTNode>(rpst.getChildren(root))) {
+                    switch (n.getType()) {
+                        case R:
+                            toAnalize.add(n);
+                            break;
+                        case T:
+                            break;
+                        case P:
+                            toAnalize.add(n);
+                            break;
+                        case B:
+                            Gateway entry = gates.get(n.getEntry().getName());
+                            Gateway exit = gates.get(n.getExit().getName());
+                            if(entry.getGatewayType() == Gateway.GatewayType.INCLUSIVE) exit.setGatewayType(entry.getGatewayType());
                             toAnalize.add(n);
                             break;
                         default:

@@ -142,20 +142,56 @@ public class ServiceProvider {
 
             switch (code) {
                 case 1:
-                    testProvider.parseComplexLog(fargs);
+                    testProvider.MineWithSMRC(fargs);
                     break;
                 case 2:
                     testProvider.SplitMiner20Service(fargs);
+                    break;
+                case 3:
+                    testProvider.SIMMinerService(fargs);
                     break;
                 default: return;
             }
         }
     }
 
-    public void parseComplexLog(String[] args) {
-        boolean takeiteasy = false;
+    public void SIMMinerService(String[] args) {
+        double eta = Double.valueOf(args[2]);
+        double epsilon = Double.valueOf(args[3]);
+
+        try {
+            IMdProxy iMdProxy = new IMdProxy();
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[0]);
+
+            long etime = System.currentTimeMillis();
+            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(LogParser.getComplexLog(log, new XEventNameClassifier()),eta,epsilon, DFGPUIResult.FilterType.FWG,true);
+//            dfgp.buildDFGP();
+            dfgp.buildDFGfromComplexLog();
+            dfgp.filterWithGuarantees();
+            dfgp.addLoops1();
+            SimpleDirectlyFollowGraph sdfg = new SimpleDirectlyFollowGraph(dfgp, false);
+            BPMNDiagram output = iMdProxy.discoverFromSDFG(sdfg);
+            etime = System.currentTimeMillis() - etime;
+
+            System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            bpmnExportPlugin.export(uiPluginContext, output, new File(args[1] + ".bpmn"));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR - inductive miner couldn't mine the process model.");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void MineWithSMRC(String[] args) {
+        boolean outputDFG = false;
+        boolean filter = false;
         BPMNDiagram diagram;
-        SplitMiner sm = new SplitMiner(false, false);
+        SplitMiner sm;
 
         String logPath = args[0];
         String modelName = args[1] + ".bpmn";
@@ -165,16 +201,20 @@ public class ServiceProvider {
         boolean parallelismFirst =  Boolean.valueOf(args[4]);
         boolean replaceIORs = Boolean.valueOf(args[5]);
         boolean removeLoopActivities = Boolean.valueOf(args[6]);
-//        double auxiliary = Double.valueOf(args[7]);
+//        boolean aux1 = Boolean.valueOf(args[7]);
+//        boolean aux2 = Boolean.valueOf(args[8]);
+//        outputDFG = aux1;
+//        filter = aux2;
 
         try {
             SimpleLog cLog = LogParser.getComplexLog(LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath), new XEventNameClassifier());
             DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(cLog, eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst);
 
-            if(takeiteasy && (cLog instanceof ComplexLog)) {
+            if(outputDFG && (cLog instanceof ComplexLog)) {
                 dfgp.buildDFGfromComplexLog();
                 dfgp.detectLoops();
                 dfgp.detectParallelismsFromComplexLog();
+                if(filter) dfgp.filterWithGuarantees();
                 diagram = dfgp.convertIntoBPMNDiagramWithOriginalLabels();
             } else {
                 dfgp.buildDFGP();

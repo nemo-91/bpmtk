@@ -25,6 +25,8 @@ import au.edu.qut.processmining.log.SimpleLog;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagramImpl;
 import org.processmining.models.graphbased.directed.bpmn.BPMNNode;
@@ -37,6 +39,8 @@ import java.util.*;
  * Created by Adriano on 24/10/2016.
  */
 public class DirectlyFollowGraphPlus {
+
+    public enum Gate {SAND, AND, OR, XOR};
 
     private static boolean completeCloning = false;
 
@@ -57,15 +61,17 @@ public class DirectlyFollowGraphPlus {
     private Set<DFGEdge> bestEdges;
     private Set<DFGEdge> untouchableEdges;
     private Set<DFGEdge> potentialConcurrency;
+    private HashMap<Pair<Integer,Integer>, Gate> relations = null;
 
     private double percentileFrequencyThreshold;
     private double parallelismsThreshold;
 //    this threshold is used only for ComplexLogs in input
-    private double concurrencyThreshold;
     private DFGPUIResult.FilterType filterType;
     private int filterThreshold;
 //    private boolean percentileOnBest;
     private boolean parallelismsFirst;
+
+    private boolean oracle = false;
 
 
     protected DirectlyFollowGraphPlus() {}
@@ -77,7 +83,6 @@ public class DirectlyFollowGraphPlus {
 
     public DirectlyFollowGraphPlus(SimpleLog log, double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst, double auxiliary) {
         this(log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
-        this.concurrencyThreshold = auxiliary;
     }
 
     public DirectlyFollowGraphPlus(SimpleLog log, double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst) {
@@ -111,6 +116,8 @@ public class DirectlyFollowGraphPlus {
         }
     }
 
+
+    public void setOracle(boolean oracle) { this.oracle = oracle; }
     public int size() { return nodes.size(); }
     public Set<DFGEdge> getEdges() { return edges; }
     public SimpleLog getSimpleLog() { return log; }
@@ -210,8 +217,13 @@ public class DirectlyFollowGraphPlus {
         return (parallelisms.containsKey(A) && parallelisms.get(A).contains(B));
     }
 
+    public boolean areInclusive(int A, int B) {
+        if( relations != null  && relations.get(new ImmutablePair<>(A,B)) == Gate.OR ) return true;
+        else return false;
+    }
+
     public void buildDFGP() {
-        System.out.println("DFGP - settings > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
+        System.out.println("DFGP - settings (eta, epsilon, filter-type) > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
         untouchableEdges = null;
 
         if(log instanceof ComplexLog) {
@@ -221,9 +233,11 @@ public class DirectlyFollowGraphPlus {
         } else {
             buildDirectlyFollowsGraph();
             detectLoops();          //depends on buildDirectlyFollowsGraph()
-            detectParallelisms();   //depends on detectLoops()
+            if(oracle) detectRelationsOnLog();
+            else detectParallelismsOnDFG();   //depends on detectLoops()
         }
 
+//        removeEventSubprocesses();
         switch(filterType) {                        //depends on detectParallelisms()
             case FWG:
                 filterWithGuarantees();
@@ -241,16 +255,15 @@ public class DirectlyFollowGraphPlus {
 //                exploreAndRemove();
                 break;
         }
-
     }
 
     public void buildSafeDFGP() {
-        System.out.println("DFGP - settings > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
+        System.out.println("DFGP - settings (eta, epsilon, filter-type) > " + percentileFrequencyThreshold + " : " + parallelismsThreshold + " : " + filterType.toString());
 
         buildDirectlyFollowsGraph();                //first method to execute
         bestEdgesOnMaxCapacitiesForConnectedness(); //this ensure a strongly connected graph (density may be impaired)
         detectLoops();                              //depends on buildDirectlyFollowsGraph()
-        detectParallelisms();                       //depends on detectLoops()
+        detectParallelismsOnDFG();                       //depends on detectLoops()
 
         switch(filterType) {                        //depends on detectParallelisms()
             case FWG:
@@ -284,8 +297,8 @@ public class DirectlyFollowGraphPlus {
         potentialConcurrency = new HashSet<>();
         loopsL1 = new HashSet<>();
 
-        cLog.printConcurrencyMatrix();
-        cLog.printRelativeConcurrencyMatrix();
+//        cLog.printConcurrencyMatrix();
+//        cLog.printRelativeConcurrencyMatrix();
         this.concurrencyMatrix = cLog.getRelativeConcurrencyMatrix();
 
         double[] relativeDFG = cLog.getRelativeDFG(); // not recommended its usage (21 Apr 2020)
@@ -296,8 +309,8 @@ public class DirectlyFollowGraphPlus {
         DFGNode node;
         DFGEdge edge;
 
-        cLog.printDFG();
-        cLog.printRelativeDFG();
+//        cLog.printDFG();
+//        cLog.printRelativeDFG();
         for(int k=0; k < totalActivities; k++) {
             node =  new DFGNode(events.get(k), k);
             this.addNode(node);
@@ -448,7 +461,7 @@ public class DirectlyFollowGraphPlus {
             }
         }
 
-//        System.out.println("DFGP - loops length TWO found: " + loopsL2.size()/2);
+        System.out.println("DFGP - loops length TWO found: " + loopsL2.size()/2);
     }
 
     public void detectParallelismsFromComplexLog() {
@@ -482,7 +495,342 @@ public class DirectlyFollowGraphPlus {
         System.out.println("DEBUG - removed parallelism edges: " + confirmedParallelisms);
     }
 
-    public void detectParallelisms() {
+    public void detectRelationsOnLog() {
+        int confirmedParallelisms = 0;
+
+        int src;
+        int tgt;
+
+        int s1, s2;
+        DFGEdge e;
+
+        relations = new HashMap<>();
+        potentialConcurrency = new HashSet<>();
+        parallelisms = new HashMap<>();
+        generateBitmatrixSplits();
+
+        for( Pair<Integer,Integer> p : relations.keySet() )
+            if(relations.get(p) == Gate.AND || relations.get(p) == Gate.OR) {
+                s1 = p.getLeft();
+                s2 = p.getRight();
+
+                e = dfgp.get(s1).get(s2);
+                if(e != null) potentialConcurrency.add(e);
+
+                e = dfgp.get(s2).get(s1);
+                if(e != null) potentialConcurrency.add(e);
+            }
+
+        System.out.println("DEBUG - total potential concurrencies: " + potentialConcurrency.size());
+
+        ArrayList<DFGEdge> orderedRemovableEdges = new ArrayList<>(potentialConcurrency);
+        Collections.sort(orderedRemovableEdges);
+        while( !orderedRemovableEdges.isEmpty() ) {
+            DFGEdge re = orderedRemovableEdges.remove(0);
+            src = re.getSourceCode();
+            tgt = re.getTargetCode();
+            if (!this.removeEdge(re, true)) {
+//                System.out.println("DEBUG - impossible remove: " + re.print());
+                if (parallelisms.containsKey(src)) parallelisms.get(src).remove(tgt);
+                if (parallelisms.containsKey(tgt)) parallelisms.get(tgt).remove(src);
+                if ((re = dfgp.get(tgt).get(src)) != null) this.removeEdge(re, true);
+            } else {
+                confirmedParallelisms++;
+                if (!parallelisms.containsKey(src)) parallelisms.put(src, new HashSet<>());
+                parallelisms.get(src).add(tgt);
+                if (!parallelisms.containsKey(tgt)) parallelisms.put(tgt, new HashSet<>());
+                parallelisms.get(tgt).add(src);
+            }
+        }
+
+        System.out.println("DEBUG - removed parallelism edges: " + confirmedParallelisms);
+    }
+
+    private void generateBitmatrixSplits() {
+//      METHOD-DEPENDENT DATA STRUCTURES
+
+//        for each split task, we have a matrix of bits, each column being a combination of successors tasks that are executed
+        HashMap<Integer, Matrix> splitMaps = new HashMap<>();
+//        for each split task, we have an array storing the successors ids
+//        we query the array to know the index of the successor to update accordingly the row of a matrix
+        HashMap<Integer, ArrayList<Integer>> successors = new HashMap<>();
+
+//        these two structures keep track of the mapping between integer successors codes and the BPMN nodes
+//        as well as the incoming edge of each successor, this is fundamental to edit the BPMN diagram later
+        HashMap<Integer, Integer> successorsToNodes = new HashMap<>();
+        HashMap<Integer, DFGEdge> successorsToEdges = new HashMap<>();
+
+//      TRACE-DEPENDENT DATA STRUCTURES
+
+//        while parsing each trace, we have to keep track of all the split tasks that we encountered
+//        then for each of them, if we see one of their successors, we update their bit set
+        HashMap<Integer, BitSet> splitTasksInTrace = new HashMap<>();
+//        for each encountered split task, we remember how far in time we encountered it
+//        we can set a max distance after which we do not update anymore the bitarray for that split task
+        HashMap<Integer, Integer> distances = new HashMap<>();
+
+
+        StringTokenizer trace;
+        int traceFrequency;
+        int event;
+//        int MAXD = 5;
+        int MAXD = Integer.MAX_VALUE;
+        int skipcounter = 0;
+        int i;
+
+        Map<String, Integer> traces = log.getTraces();
+
+        int size;
+        int SID; // tmp successors ID
+        ArrayList<Integer> tmpSuccessors;
+        for(int TID : nodes.keySet())
+            if((size = outgoings.get(TID).size()) > 1) {
+                splitMaps.put(TID, new Matrix(size));
+
+                tmpSuccessors = new ArrayList<>(size);
+                for(DFGEdge e : outgoings.get(TID)) {
+                    SID = e.getTargetCode();
+                    tmpSuccessors.add(SID);
+                    splitMaps.get(TID).addSuccessor(SID);
+//                    successorsToNodes.put(SID, e.getTargetCode());
+//                    successorsToEdges.put(SID, e);
+                }
+                successors.put(TID, tmpSuccessors);
+            }
+
+
+        for( String t : traces.keySet() ) {
+            trace = new StringTokenizer(t, "::");
+            traceFrequency = traces.get(t);
+            splitTasksInTrace.clear();
+
+//            consuming the start event that is always 0
+//            we assume that the start event is not a successor of any split or a split itself
+            trace.nextToken();
+            while( trace.hasMoreTokens() ) {
+                event = Integer.valueOf(trace.nextToken());
+                if (splitMaps.containsKey(event)) {
+                    distances.put(event, 0); // not sure we need this, for the moment we keep it
+                    if (!splitTasksInTrace.containsKey(event)) splitTasksInTrace.put(event, new BitSet());
+                }
+
+                for( int sti : splitTasksInTrace.keySet() ) {
+//                    we now scan all the split tasks that we encountered so far
+//                    however, split task executed too long ago or same of the current event are not taken into account
+//                    distances.put(sti, distances.get(sti)+1);
+                    if( distances.get(sti) > MAXD ||  event == sti ) {
+                        skipcounter++;
+                        continue;
+                    }
+//                    if the current event is a successor for one or more of them (in which case the event is also a join)
+//                    we update the observation bitset of the split task for this trace
+                    if( (i = successors.get(sti).indexOf(event)) != -1 ) splitTasksInTrace.get(sti).set(i);
+                }
+            }
+
+//            once the whole trace has been parsed, we add the bitset of each split task to its matrix of bitsets
+            for( int sti : splitTasksInTrace.keySet() ) splitMaps.get(sti).addBitset(splitTasksInTrace.get(sti), traceFrequency);
+        }
+
+        for( int sti : splitMaps.keySet() )
+            generateSplitsHierarchyFromObservationMatrix(sti, splitMaps.get(sti));
+
+        System.out.println("DEBUG - skipcounter = " + skipcounter);
+    }
+
+    private void generateSplitsHierarchyFromObservationMatrix(int split, Matrix matrix) {
+        boolean print = false;
+
+        System.out.println("DEBUG - split task: " + log.getEvents().get(split) + " (" + split + ")");
+//        matrix.print();
+        matrix.prune(parallelismsThreshold);
+
+        HashMap<Integer, BitSet> transposedMatrix = new HashMap<>();
+        int ROWS = matrix.rows();
+
+//      first we transpose the matrix
+        for(int i = 0; i< matrix.totalSuccessors(); i++)
+            transposedMatrix.put(matrix.successors[i], new BitSet(ROWS));
+
+        int r = 0; // row = bitset
+        for(BitSet bs : matrix.matrix.keySet()) {
+            int sl = 0; // location of the successor in the current biset
+            for( ; sl<matrix.totalSuccessors(); sl++)
+                transposedMatrix.get(matrix.successors[sl]).set(r, bs.get(sl));
+            r++;
+        }
+//      transposition is over
+
+        if(print) {
+            System.out.println("DEBUG - printing transposed matrix:");
+            for (int s : transposedMatrix.keySet()) {
+                System.out.print("S: " + s + " :");
+                for (int si = 0; si < ROWS; si++) {
+                    if (transposedMatrix.get(s).get(si)) System.out.print("1");
+                    else System.out.print("0");
+                }
+                System.out.println();
+            }
+        }
+
+//        we compare the successors observations in the same trace
+        Set<Pair<Integer,Integer>> ANDs = new HashSet<>();
+        Set<Pair<Integer,Integer>> SANDs = new HashSet<>();
+        Set<Pair<Integer,Integer>> XORs = new HashSet<>();
+        Set<Pair<Integer,Integer>> ORs = new HashSet<>();
+        Set<Integer> skips = new HashSet<>();
+        BitSet bs0, bs1, bs2;
+        Set<Integer> removableSuccessors = new HashSet<>();
+        Set<Integer> analysed = new HashSet<>();
+        Gate type;
+
+        System.out.println("DEBUG - discovering relations");
+        for (int s1 : transposedMatrix.keySet()) {
+            bs1 = transposedMatrix.get(s1);
+            analysed.add(s1);
+            for (int s2 : transposedMatrix.keySet()) {
+                if( analysed.contains(s2) ) continue;
+                bs2 = transposedMatrix.get(s2);
+                type = determineRelation(s1, s2, bs1, bs2, ROWS, skips);
+                switch (type) {
+                    case SAND:
+                        SANDs.add(new ImmutablePair<>(s1,s2));
+                        break;
+                    case AND:
+                        ANDs.add(new ImmutablePair<>(s1,s2));
+                        break;
+                    case XOR:
+                        XORs.add(new ImmutablePair<>(s1,s2));
+                        break;
+                    case OR:
+                        ORs.add(new ImmutablePair<>(s1,s2));
+                        break;
+                }
+            }
+        }
+
+//            first we check if we found ANDs
+        for(Pair<Integer,Integer> p : ANDs) {
+//                if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+//                when we find an AND we can remove one of the two without any issues
+            bs1 = transposedMatrix.get(p.getLeft());
+            removableSuccessors.add(p.getLeft());
+            removableSuccessors.add(p.getRight());
+            bs0 = new BitSet();
+            for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i));
+//                transposedMatrix.put(p.getLeft()*100, bs0);
+//            System.out.println("DEBUG - AND("+ p.getLeft() + "," + p.getRight() + ")");
+            if(relations.containsKey(p) && relations.get(p) != Gate.AND) System.out.println("WARNING - double relation for: ("+ p.getLeft() + "," + p.getRight() + ")");
+            relations.put(p, Gate.AND);
+        }
+
+//            then we check for XORs
+        for (Pair<Integer, Integer> p : XORs) {
+//                if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+//            System.out.println("DEBUG - XOR("+ p.getLeft() + "," + p.getRight() + ")");
+//                when we find an XOR....
+            bs1 = transposedMatrix.get(p.getLeft());
+            bs2 = transposedMatrix.get(p.getRight());
+            removableSuccessors.add(p.getLeft());
+            removableSuccessors.add(p.getRight());
+            bs0 = new BitSet();
+            for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i) || bs2.get(i));
+//                transposedMatrix.put(p.getLeft()*100, bs0);
+            if(relations.containsKey(p) && relations.get(p) != Gate.XOR) System.out.println("WARNING - double relation for: ("+ p.getLeft() + "," + p.getRight() + ")");
+            relations.put(p, Gate.XOR);
+        }
+
+//            then we consider ORs
+        for (Pair<Integer, Integer> p : ORs) {
+//                if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+//            System.out.println("DEBUG - OR("+ p.getLeft() + "," + p.getRight() + ")");
+//                when we find an OR...
+            bs1 = transposedMatrix.get(p.getLeft());
+            bs2 = transposedMatrix.get(p.getRight());
+            removableSuccessors.add(p.getLeft());
+            removableSuccessors.add(p.getRight());
+            bs0 = new BitSet();
+            for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i) || bs2.get(i));
+//                transposedMatrix.put(p.getLeft()*100, bs0);
+            if(relations.containsKey(p) && relations.get(p) != Gate.OR) System.out.println("WARNING - double relation for: ("+ p.getLeft() + "," + p.getRight() + ")");
+            relations.put(p, Gate.OR);
+        }
+
+/*      NOT USED ATM                 finally we consider ANDs with skips
+        for (Pair<Integer, Integer> p : SANDs) {
+//                if(removableSuccessors.contains(p.getLeft()) || removableSuccessors.contains(p.getRight())) continue;
+            bs1 = transposedMatrix.get(p.getLeft());
+            bs2 = transposedMatrix.get(p.getRight());
+            removableSuccessors.add(p.getLeft());
+            removableSuccessors.add(p.getRight());
+            bs0 = new BitSet();
+
+            if( skips.contains(p.getLeft()) ) {
+                System.out.println("DEBUG - AND(SKIP(" + p.getLeft() + ")," + p.getRight() + ")");
+                for (int i = 0; i < ROWS; i++) bs0.set(i, bs2.get(i));
+            } else {
+                System.out.println("DEBUG - AND("+ p.getLeft() + ",SKIP(" + p.getRight() + "))");
+                for(int i = 0; i<ROWS; i++) bs0.set(i, bs1.get(i));
+            }
+//                transposedMatrix.put(p.getLeft()*100, bs0);
+        }
+*/
+
+        for( int rs : removableSuccessors ) transposedMatrix.remove(rs);
+    }
+
+    private Gate determineRelation(int s1, int s2, BitSet bs1, BitSet bs2, int size, Set<Integer> skips) {
+        Gate type = Gate.OR;
+        boolean safe = true;
+        int mismatch = 0;
+        int match = 0;
+
+        if(loopsL2.contains(dfgp.get(s1).get(s2))) {
+            System.out.println("DEBUG - pair ("+ s1 + "," + s2 + ") - shortloop");
+            return Gate.XOR;
+        }
+
+        Set<Pair<Boolean, Boolean>> observations = new HashSet<>();
+        for(int i = 0; i<size; i++)
+            observations.add(new ImmutablePair<>(bs1.get(i),bs2.get(i)));
+
+//        System.out.println("DEBUG - obs for ("+ s1 + "," + s2 + "): " + observations.size());
+
+        size = observations.size();
+        if( observations.remove(new ImmutablePair<>(false, false)) ) size--;
+        if(observations.size() >= 3) return Gate.OR;
+
+//        if all the observations match, we have an AND
+        for(Pair<Boolean, Boolean> p : observations)
+            if(p.getLeft() == p.getRight()) match++;
+            else mismatch++;
+
+        if(match == size) return Gate.AND;
+        if(safe && (s1 < 0) || (s2 < 0) ) return Gate.XOR; // this is to play safe with successor-joins
+
+//        otherwise we could have a XOR or OR
+        Pair<Boolean, Boolean> skipL = new ImmutablePair<>(false, true);
+        Pair<Boolean, Boolean> skipR = new ImmutablePair<>(true, false);
+        Pair<Boolean, Boolean> skipNone = new ImmutablePair<>(true, true);
+//        Pair<Boolean, Boolean> skipBoth = new ImmutablePair<>(false, false);
+
+        if(observations.contains(skipL) && observations.contains(skipNone)) {
+            skips.add(s1);
+            return Gate.XOR;
+        }
+
+        if(observations.contains(skipR) && observations.contains(skipNone)) {
+            skips.add(s2);
+            return Gate.XOR;
+        }
+
+        if(observations.contains(skipL) && observations.contains(skipR)) return Gate.XOR;
+        else return Gate.OR;
+
+
+    }
+
+    public void detectParallelismsOnDFG() {
 //        int totalParallelisms = 0;
 //        int confirmedParallelisms = 0;
 //        int notParallel = 0;
@@ -552,6 +900,20 @@ public class DirectlyFollowGraphPlus {
         }
 
 //        System.out.println("DFGP - parallelisms found (total, confirmed): (" + totalParallelisms + " , " + confirmedParallelisms + ")");
+    }
+
+    public void removeEventSubprocesses() {
+        int maxP = (int) (nodes.size() * 0.30);
+        HashSet<Integer> eventSubprocesses = new HashSet<>();
+
+        System.out.println("DEBUG - max parallelisms allowed: " + maxP );
+        for(int n : nodes.keySet())
+            if(parallelisms.containsKey(n) && parallelisms.get(n).size() >= maxP) eventSubprocesses.add(n);
+        System.out.println("DEBUG - total event subprocesses: " + eventSubprocesses.size());
+
+        for(int es : eventSubprocesses) this.removeNode(es);
+
+        exploreAndRemove();
     }
 
     private void standardFilter() {
@@ -629,7 +991,7 @@ public class DirectlyFollowGraphPlus {
 //        System.out.println("DEBUG - filter threshold: " + filterThreshold);
     }
 
-    private void filterWithGuarantees() {
+    public void filterWithGuarantees() {
         bestEdgesOnMaxFrequencies();
         computeFilterThreshold();
 
@@ -640,6 +1002,8 @@ public class DirectlyFollowGraphPlus {
 
     private void bestEdgesOnMaxCapacities() {
         int src, tgt, cap, maxCap;
+        boolean tiebreak;
+        boolean useTiebreaker = false;
         DFGEdge bp, bs;
 
         LinkedList<Integer> toVisit = new LinkedList<>();
@@ -670,7 +1034,8 @@ public class DirectlyFollowGraphPlus {
             for( DFGEdge oe : outgoings.get(src) ) {
                 tgt = oe.getTargetCode();
                 maxCap = (cap > oe.getFrequency() ? oe.getFrequency() : cap);
-                if( (maxCap > maxCapacitiesFromSource.get(tgt)) ) { //|| ((maxCap == maxCapacitiesFromSource.get(tgt)) && (bestPredecessorFromSource.get(tgt).getFrequency() < oe.getFrequency())) ) {
+                tiebreak = (maxCap == maxCapacitiesFromSource.get(tgt)) && bestPredecessorFromSource.get(tgt).isLoop() && useTiebreaker;
+                if( (maxCap > maxCapacitiesFromSource.get(tgt)) || tiebreak ) {
                     maxCapacitiesFromSource.put(tgt, maxCap);
                     bestPredecessorFromSource.put(tgt, oe);
                     if( !toVisit.contains(tgt) ) unvisited.add(tgt);
@@ -695,7 +1060,8 @@ public class DirectlyFollowGraphPlus {
             for( DFGEdge ie : incomings.get(tgt) ) {
                 src = ie.getSourceCode();
                 maxCap = (cap > ie.getFrequency() ? ie.getFrequency() : cap);
-                if( (maxCap > maxCapacitiesToSink.get(src)) ) { //|| ((maxCap == maxCapacitiesToSink.get(src)) && (bestSuccessorToSink.get(src).getFrequency() < ie.getFrequency())) ) {
+                tiebreak = (maxCap == maxCapacitiesToSink.get(src)) && bestSuccessorToSink.get(src).isLoop() && useTiebreaker;
+                if( (maxCap > maxCapacitiesToSink.get(src)) || tiebreak ) {
                     maxCapacitiesToSink.put(src, maxCap);
                     bestSuccessorToSink.put(src, ie);
                     if( !toVisit.contains(src) ) unvisited.add(src);
@@ -768,7 +1134,6 @@ public class DirectlyFollowGraphPlus {
             removeNode(n);
         }
     }
-
 
     /* data objects management */
 
@@ -1023,6 +1388,67 @@ public class DirectlyFollowGraphPlus {
         if(!unvisited.isEmpty()) return false;
 
         return true;
+    }
+
+    public void addLoops1() {
+        for(int l1 : loopsL1) addEdge(new DFGEdge(nodes.get(l1),nodes.get(l1),1));
+    }
+
+}
+
+class Matrix {
+    int[] successors;
+    int is;
+
+    HashMap<BitSet, Integer> matrix;
+    int totalFrequency;
+
+    Matrix(int successors) {
+        this.successors = new int[successors];
+        matrix = new HashMap<>();
+        is = 0;
+        totalFrequency = 0;
+    }
+
+    void addSuccessor(int s) {
+        successors[is] = s;
+        is++;
+    }
+
+    void addBitset(BitSet combo, int frequency) {
+        totalFrequency+= frequency;
+        if(matrix.get(combo) == null) matrix.put(combo, frequency);
+        else matrix.put(combo, matrix.get(combo)+frequency);
+    }
+
+    void prune(double threshold) {
+        Set<BitSet> lowFrequency = new HashSet<>();
+        double avgFrequency = (double)totalFrequency/matrix.size();
+
+        for(BitSet bs : matrix.keySet())
+            if( ((double)matrix.get(bs)/avgFrequency) < threshold) lowFrequency.add(bs);
+        System.out.println("DEBUG - removing " + lowFrequency.size() + " low frequency observations");
+
+        for(BitSet bs : lowFrequency) matrix.remove(bs);
+    }
+
+    int[] getSuccessors() { return successors; }
+    int totalSuccessors() { return is; }
+    int rows() { return matrix.keySet().size(); }
+
+    Set<BitSet> getObservations() { return matrix.keySet(); }
+
+    void print() {
+        System.out.println("DEBUG - # successors: " + is);
+        System.out.println("DEBUG - matrix size: " + matrix.keySet().size());
+        System.out.println("DEBUG - matrix full @: " + (int)(Math.pow(2,is) - 1));
+        for(BitSet combo : matrix.keySet()) {
+            for (int s = 0; s < is; s++) {
+                if (combo.get(s)) System.out.print("1");
+                else System.out.print("0");
+            }
+            System.out.println();
+        }
     }
 
 }
