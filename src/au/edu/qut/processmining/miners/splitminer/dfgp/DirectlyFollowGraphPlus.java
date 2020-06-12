@@ -217,6 +217,20 @@ public class DirectlyFollowGraphPlus {
         return (parallelisms.containsKey(A) && parallelisms.get(A).contains(B));
     }
 
+    public int[] getPotentialORs() {
+        if(log instanceof ComplexLog) return ((ComplexLog) log).getPotentialORs();
+
+        int[] exclusiveness = log.getExclusiveness();
+        int length = exclusiveness.length;
+        int[] potentialORs = new int[length];
+        int size = (int) Math.sqrt(length);
+
+        for(int i=0; i<length; i++)
+            if(areConcurrent(i/size,i%size) && exclusiveness[i] > 0) potentialORs[i] = 1;
+
+        return potentialORs;
+    }
+
     public boolean areInclusive(int A, int B) {
         if( relations != null  && relations.get(new ImmutablePair<>(A,B)) == Gate.OR ) return true;
         else return false;

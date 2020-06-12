@@ -159,6 +159,9 @@ public class LogParser {
         int totalTraces = log.size();
         long traceSize;
 
+        int[] exclusiveness;
+        Set<Integer> executed = new HashSet<>();
+
         events.put(STARTCODE, "autogen-start");
         events.put(ENDCODE, "autogen-end");
 
@@ -190,8 +193,12 @@ public class LogParser {
             LID++;
         }
 
+        exclusiveness = new int[LID*LID];
+        for(int i = 0; i<exclusiveness.length; i++) exclusiveness[i] = 0;
+
         totalEvents = 0;
         for( tIndex = 0; tIndex < totalTraces; tIndex++ ) {
+            executed.clear();
             /* we convert each trace in the log into a string
             *  each string will be a sequence of "::x" terminated with "::", where:
             *  '::' is a separator
@@ -207,6 +214,7 @@ public class LogParser {
                 event = trace.get(eIndex);
                 label = xEventClassifier.getClassIdentity(event);
                 sTrace += ":" + labelsToIDs.get(label).toString() + ":";
+                executed.add(labelsToIDs.get(label));
             }
             sTrace += ":" + Integer.toString(ENDCODE) + "::";
 
@@ -216,6 +224,15 @@ public class LogParser {
 
             if( !traces.containsKey(sTrace) ) traces.put(sTrace, 0);
             traces.put(sTrace, traces.get(sTrace)+1);
+
+            for(int a=0; a < LID; a++) {
+                if(!executed.contains(a)) {
+                    for(int x : executed) {
+                        exclusiveness[x*LID + a]++;
+                        exclusiveness[a*LID + x]++;
+                    }
+                }
+            }
         }
 
 //        System.out.println("LOGP - total events parsed: " + totalEvents);
@@ -228,6 +245,7 @@ public class LogParser {
 //        for( int code : events.keySet() ) System.out.println("DEBUG - " + code + " = " + events.get(code));
 
         sLog = new SimpleLog(traces, events, log);
+        sLog.setExclusiveness(exclusiveness);
         sLog.setReverseMap(reverseMap);
         sLog.setStartcode(STARTCODE);
         sLog.setEndcode(ENDCODE);
@@ -474,7 +492,7 @@ public class LogParser {
             sLog = new ComplexLog(traces, events, log);
             ((ComplexLog)sLog).setDFG(dfg);
             ((ComplexLog)sLog).setConcurrencyMatrix(parallelism);
-            ((ComplexLog)sLog).setExclusiveness(exclusiveness);
+            sLog.setExclusiveness(exclusiveness);
             ((ComplexLog)sLog).setActivityObserved(activityObserved);
             ((ComplexLog)sLog).computePercentages();
 
@@ -488,8 +506,10 @@ public class LogParser {
               }
 
             ((ComplexLog)sLog).setPotentialORs(potentialORs);
-
-        } else sLog = new SimpleLog(traces, events, log);
+        } else {
+            sLog = new SimpleLog(traces, events, log);
+            sLog.setExclusiveness(exclusiveness);
+        }
 
         sLog.setReverseMap(reverseMap);
         sLog.setStartcode(STARTCODE);

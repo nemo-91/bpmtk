@@ -856,10 +856,12 @@ public class SplitMiner {
 
         int counter;
         int[] potentialORs;
-        int src, tgt, i;
+        int tgt1, tgt2;
         boolean ORs = false;
-        if(!replaceIORs && log instanceof ComplexLog) {
-            potentialORs = ((ComplexLog) log).getPotentialORs();
+        int columns;
+        if(!replaceIORs) {
+            potentialORs = dfgp.getPotentialORs();
+            columns = (int) Math.sqrt(potentialORs.length);
             for( Gateway g : bpmnDiagram.getGateways() ) {
                 if( g.getGatewayType() == Gateway.GatewayType.PARALLEL && bpmnDiagram.getOutEdges(g).size() > 1 ) {
                     counter = 0;
@@ -867,10 +869,9 @@ public class SplitMiner {
                         for( BPMNEdge<? extends BPMNNode, ? extends BPMNNode> oe2 : bpmnDiagram.getOutEdges(g) )
                             if( oe1.getTarget() == oe2.getTarget() ) continue;
                             else {
-                                src = Integer.valueOf(oe1.getTarget().getLabel());
-                                tgt = Integer.valueOf(oe2.getTarget().getLabel());
-                                i = (src*(log.getEndcode()+1)) + tgt;
-                                if( potentialORs[i] > 0 ) counter++;
+                                tgt1 = Integer.valueOf(oe1.getTarget().getLabel());
+                                tgt2 = Integer.valueOf(oe2.getTarget().getLabel());
+                                if( potentialORs[(tgt1*columns) + tgt2] > 0 ) counter++;
                             }
                     if( counter > bpmnDiagram.getOutEdges(g).size() ) {
                         ORs = true;

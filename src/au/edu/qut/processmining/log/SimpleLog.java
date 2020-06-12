@@ -42,6 +42,14 @@ public class SimpleLog {
     private int startcode;
     private int endcode;
 
+    private int[] exclusiveness;
+    public int[] getExclusiveness() {
+        return exclusiveness;
+    }
+    public void setExclusiveness(int[] exclusiveness) {
+        this.exclusiveness = exclusiveness;
+    }
+
     public SimpleLog(Map<String, Integer> traces, Map<Integer, String> events, XLog xlog) {
         this.traces = traces;
         this.events = events;
