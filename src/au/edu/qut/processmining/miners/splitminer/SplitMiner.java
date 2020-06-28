@@ -867,7 +867,7 @@ public class SplitMiner {
                     counter = 0;
                     for( BPMNEdge<? extends BPMNNode, ? extends BPMNNode> oe1 : bpmnDiagram.getOutEdges(g) )
                         for( BPMNEdge<? extends BPMNNode, ? extends BPMNNode> oe2 : bpmnDiagram.getOutEdges(g) )
-                            if( oe1.getTarget() == oe2.getTarget() ) continue;
+                            if( (oe1.getTarget() == oe2.getTarget()) || (oe1.getTarget() instanceof Gateway) || (oe2.getTarget() instanceof Gateway) ) continue;
                             else {
                                 tgt1 = Integer.valueOf(oe1.getTarget().getLabel());
                                 tgt2 = Integer.valueOf(oe2.getTarget().getLabel());
