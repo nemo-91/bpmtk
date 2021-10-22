@@ -477,10 +477,10 @@ public class LogParser {
         System.out.println("LOGP - total events parsed: " + totalEvents);
         System.out.println("LOGP - start events parsed: " + startEvents);
         System.out.println("LOGP - complete events parsed: " + completeEvents);
-        System.out.println("LOGP - total concurrencies identified: " + totalConcurrencies);
+//        System.out.println("LOGP - total concurrencies identified: " + totalConcurrencies);
 
-//        System.out.println("LOGP - total distinct events: " + (events.size() - 2) );
-//        System.out.println("LOGP - total distinct traces: " + traces.size() );
+        System.out.println("LOGP - total distinct events: " + (events.size() - 2) );
+        System.out.println("LOGP - total distinct traces: " + traces.size() );
 
 //        for( String t : traces.keySet() ) System.out.println("DEBUG - ["+ traces.get(t) +"] trace: " + t);
 

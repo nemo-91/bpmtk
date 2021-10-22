@@ -33,6 +33,7 @@ public class Levenshtein {
                         Math.min( distance[i - 1][j] + 1, distance[i][j - 1] + 1 ),
                         distance[i - 1][j - 1] + ((lhs[i - 1] == rhs[j - 1]) ? 0 : 1));
 
+//        System.out.println("DEBUG - distance : " + distance[lhs.length][rhs.length]);
         return distance[lhs.length][rhs.length];
     }
 

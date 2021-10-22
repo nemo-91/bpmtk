@@ -55,6 +55,7 @@ public class DirectlyFollowGraphPlus {
     private Map<Integer, HashMap<Integer, DFGEdge>> dfgp;
 
     private Set<Integer> loopsL1;
+    private Map<Integer, Integer> loopsL1Freq;
     private Set<DFGEdge> loopsL2;
     private Map<Integer, HashSet<Integer>> parallelisms;
     private double[] concurrencyMatrix;
@@ -79,7 +80,6 @@ public class DirectlyFollowGraphPlus {
     public DirectlyFollowGraphPlus(SimpleLog log) {
         this(log, DFGPUIResult.FREQUENCY_THRESHOLD, DFGPUIResult.PARALLELISMS_THRESHOLD, DFGPUIResult.STD_FILTER, DFGPUIResult.PARALLELISMS_FIRST);
     }
-
 
     public DirectlyFollowGraphPlus(SimpleLog log, double percentileFrequencyThreshold, double parallelismsThreshold, DFGPUIResult.FilterType filterType, boolean parallelismsFirst, double auxiliary) {
         this(log, percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
@@ -377,6 +377,7 @@ public class DirectlyFollowGraphPlus {
         incomings = new HashMap<>();
         dfgp = new HashMap<>();
         loopsL1 = new HashSet<>();
+        loopsL1Freq = new HashMap<>();
 
         autogenStart = new DFGNode(events.get(startcode), startcode);
         this.addNode(autogenStart);
@@ -401,7 +402,11 @@ public class DirectlyFollowGraphPlus {
                 event = Integer.valueOf(trace.nextToken());
 
                 if(prevEvent == event) {
-                    loopsL1.add(event);
+                    if(loopsL1.contains(event)) loopsL1Freq.put(event, (loopsL1Freq.get(event)+1));
+                    else {
+                        loopsL1.add(event);
+                        loopsL1Freq.put(event, 1);
+                    }
                     continue;
                 }
 
@@ -1255,9 +1260,18 @@ public class DirectlyFollowGraphPlus {
 
     /* DEBUG methods */
 
-    private void printEdges() {
-        for(DFGEdge e : edges)
-            System.out.println("DEBUG - edge : " + e.print());
+    public void printEdges(boolean includeL1) {
+        String edge;
+        Map<Integer, String> events = log.getEvents();
+
+        for(DFGEdge e : edges) {
+            edge = events.get(e.getSourceCode()) + " > " + events.get(e.getTargetCode()) + " [" + e.getFrequency() + "]";
+            System.out.println("DEBUG - edge : " + edge);
+        }
+
+        for(int l1 : loopsL1) {
+            System.out.println("DEBUG - edge : " + events.get(l1) + " > " + events.get(l1) + " [ " + loopsL1Freq.get(l1) + " ]");
+        }
     }
 
     public void printNodes() {

@@ -100,8 +100,8 @@ public class SplitMiner {
         this.removeLoopActivities = removeLoopActivities;
         this.structuringTime = structuringTime;
 
-//        this.log = (new LogParser()).getSimpleLog(log, xEventClassifier, 1.00);
-        this.log = LogParser.getSimpleLog(log, xEventClassifier);
+        this.log = (new LogParser()).getSimpleLog(log, xEventClassifier, 1.00);
+//        this.log = LogParser.getComplexLog(log, xEventClassifier);
 
         generateDFGP(percentileFrequencyThreshold, parallelismsThreshold, filterType, parallelismsFirst);
         try {
@@ -232,7 +232,7 @@ public class SplitMiner {
         generateInnerJoins();
 
 //        if( structuringTime == SplitMinerUIResult.StructuringTime.PRE ) structure();
-        helper.removeEmptyParallelFlows(bpmnDiagram);
+//        helper.removeEmptyParallelFlows(bpmnDiagram);
         helper.fixSoundness(bpmnDiagram);
 
 //        finally, we turn all the inclusive joins placed, into proper joins: ANDs or XORs

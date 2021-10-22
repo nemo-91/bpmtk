@@ -1,5 +1,8 @@
 package au.edu.unimelb.services;
 
+import au.edu.qut.bpmn.io.BPMNDiagramImporter;
+import au.edu.qut.bpmn.io.impl.BPMNDiagramImporterImpl;
+import au.edu.qut.bpmn.metrics.ComplexityCalculator;
 import au.edu.qut.processmining.log.ComplexLog;
 import au.edu.qut.processmining.log.LogParser;
 import au.edu.qut.processmining.log.SimpleLog;
@@ -9,9 +12,12 @@ import au.edu.qut.processmining.miners.splitminer.dfgp.DirectlyFollowGraphPlus;
 import au.edu.qut.processmining.miners.splitminer.ui.dfgp.DFGPUIResult;
 import au.edu.qut.processmining.miners.splitminer.ui.miner.SplitMinerUIResult;
 import au.edu.unimelb.processmining.accuracy.MarkovianAccuracyCalculator;
+import au.edu.unimelb.processmining.compliance.TimeConstraintsChecker;
 import au.edu.unimelb.processmining.optimization.*;
 import com.raffaeleconforti.conversion.bpmn.BPMNToPetriNetConverter;
+import com.raffaeleconforti.conversion.petrinet.PetriNetToBPMNConverter;
 import com.raffaeleconforti.log.util.LogImporter;
+import com.raffaeleconforti.marking.MarkingDiscoverer;
 import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
@@ -21,15 +27,16 @@ import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.fodina.Fodina;
 import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
+import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.models.semantics.petrinet.Marking;
 import org.processmining.plugins.bpmn.plugins.BpmnExportPlugin;
 import org.processmining.plugins.bpmnminer.types.MinerSettings;
 import org.processmining.plugins.kutoolbox.utils.FakePluginContext;
 import org.processmining.plugins.pnml.exporting.PnmlExportNetToPNML;
+import org.processmining.plugins.pnml.importing.PnmlImportNet;
+import sun.java2d.pipe.SpanShapeRenderer;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 
 
 /**
@@ -37,7 +44,7 @@ import java.io.IOException;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {MAP, MAF, MWT, SMPN, SMD, MAC, AOM, AOL, AORM, OM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
+    public enum TEST_CODE {AVGD, MAP, MAF, SM2, SMPN, SMD, MAC, AOM, AOL, AORM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -65,14 +72,16 @@ public class ServiceProvider {
 //        }
 
         try {
+            System.out.println("TESTCODE - " + args[0]);
             TEST_CODE code = TEST_CODE.valueOf(args[0]);
             String[] fargs = new String[args.length-1];
             for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
 
             switch(code) {
-    //            case KEN:
-    //                (new Testing()).kendallTest(fargs);
-    //                break;
+                case AVGD:
+//                    testProvider.averageDistanceLogComplexity(fargs[0]);
+                    testProvider.timeConstraintsChecker(fargs[0], fargs[1]);
+                    break;
     //            case ISL:
     //                testProvider.importSimpleLog8020(fargs);
     //                break;
@@ -100,9 +109,9 @@ public class ServiceProvider {
                 case AORM:
                     Testing.accuracyOnRealModelsSet(MarkovianAccuracyCalculator.Abs.valueOf(fargs[0]), MarkovianAccuracyCalculator.Opd.valueOf(fargs[1]), fargs[2], fargs[3], Integer.valueOf(fargs[4]));
                     break;
-                case OM:
-                    testProvider.omegaMiner(fargs[0]);
-                    break;
+//                case OM:
+//                    testProvider.omegaMiner(fargs[0]);
+//                    break;
                 case OPTF:
                     testProvider.APDO(fargs[0], fargs[1], fargs[2], fargs[3]);
                     break;
@@ -116,7 +125,8 @@ public class ServiceProvider {
                     testProvider.IMHPO(fargs[0]);
                     break;
                 case COMPX:
-                    Testing.complexityOnRealModelsSet(fargs[0]);
+                    computeComplexity(fargs[0]);
+//                    Testing.complexityOnRealModelsSet(fargs[0]);
                     break;
                 case FOD:
                     testProvider.FodinaMinerService(fargs);
@@ -128,14 +138,19 @@ public class ServiceProvider {
     //                Testing.SMBatchDiscovery(fargs);
     //                break;
                 case SMPN:
+//                    logAnalysis(fargs[0]);
                     testProvider.SplitMinerServicePetrinet(fargs);
                     break;
-                case MWT:
-                    testProvider.Utest(fargs);
+//                case MWT:
+//                    testProvider.Utest(fargs);
+//                    break;
+                case SM2:
+                    testProvider.MineWithSMTC(fargs);
                     break;
             }
 
         } catch(Exception e) {
+            e.printStackTrace();
             int code = Integer.valueOf(args[0]);
             String[] fargs = new String[args.length-1];
             for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
@@ -153,6 +168,106 @@ public class ServiceProvider {
                 default: return;
             }
         }
+    }
+
+    private static void averageDistanceLogComplexity(String logPath) {
+        XLog log = null;
+
+        try {
+            log = LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath);
+        } catch(Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        SimpleLog slog = LogParser.getSimpleLog(log, new XEventNameClassifier());
+        long etime = System.currentTimeMillis();
+        System.out.println("RESULT - " + (new ComplexityCalculator()).logComplexity(slog));
+        etime = System.currentTimeMillis() - etime;
+        System.out.println("eTIME - " + (double)etime/1000.0 + "s");
+    }
+
+    private static void timeConstraintsChecker(String logPath, String rulesPath){
+        long etime;
+        TimeConstraintsChecker tcc = new TimeConstraintsChecker();
+
+        etime = System.currentTimeMillis();
+        tcc.readXLog(logPath);
+        etime = System.currentTimeMillis() - etime;
+        System.out.println("Loading TIME - " + (double)etime/1000.0 + "s");
+//        tcc.print();
+
+        etime = System.currentTimeMillis();
+        tcc.checkConstraints(rulesPath);
+        etime = System.currentTimeMillis() - etime;
+        System.out.println("Querying TIME - " + (double)etime/1000.0 + "s");
+    }
+
+    private static void logAnalysis(String logPath) {
+        XLog log = null;
+
+        System.out.println("LOGSA - starting analysis ... ");
+
+        try {
+            log = LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath);
+        } catch(Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        SimpleLog slog = LogParser.getComplexLog(log, new XEventNameClassifier());
+
+        System.out.println("LOGSA - total traces: " + slog.size());
+        System.out.println("LOGSA - total events: " + slog.getTotalEvents());
+
+        System.out.println("LOGSA - total distinct traces: " + slog.getDistinctTraces());
+        System.out.println("LOGSA - total distinct events: " + slog.getDistinctEvents());
+
+        System.out.println("LOGSA - shortest trace length: " + slog.getShortestTrace());
+        System.out.println("LOGSA - avg trace length: " + slog.getAvgTraceLength());
+        System.out.println("LOGSA - longest trace length: " + slog.getLongestTrace());
+    }
+
+    private static void computeComplexity(String modelPath) {
+        BPMNDiagramImporter bpmnImporter = new BPMNDiagramImporterImpl();
+        ComplexityCalculator complexityCalculator = new ComplexityCalculator();
+        BPMNDiagram bpmn;
+        PnmlImportNet pnmli = new PnmlImportNet();
+        com.raffaeleconforti.context.FakePluginContext fakePluginContext = new com.raffaeleconforti.context.FakePluginContext();
+        Petrinet net = null;
+
+        String size;
+        String cfc;
+        String struct;
+
+            try {
+                if(modelPath.contains(".pnml")) {
+                    Object o = pnmli.importFile(fakePluginContext, modelPath);
+                    if(o instanceof Object[] && (((Object[])o)[0] instanceof Petrinet) ) net = (Petrinet)((Object[])o)[0];
+                    else {
+                        System.out.println("DEBUG - class: " + o.getClass().getSimpleName());
+                        throw new Exception();
+                    }
+
+                    Marking initMarking = MarkingDiscoverer.constructInitialMarking(fakePluginContext, net);
+                    Marking finalMarking = MarkingDiscoverer.constructFinalMarking(fakePluginContext, net);
+
+                    for(Transition t : net.getTransitions() )
+                        if( t.getLabel().matches("t\\d+") || t.getLabel().contains("tau")) t.setInvisible(true);
+
+                    bpmn = PetriNetToBPMNConverter.convert(net, initMarking, finalMarking, false);
+                } else bpmn = bpmnImporter.importBPMNDiagram(modelPath);
+
+                complexityCalculator.setBPMN(bpmn);
+                size = complexityCalculator.computeSize();
+                cfc = complexityCalculator.computeCFC();
+                struct = complexityCalculator.computeStructuredness();
+
+                System.out.println("COMPLEXITY (size, CFC, struct.) - (" + size + "," + cfc + "," + struct + ")");
+            } catch (Exception e) {
+                System.out.println("ERROR - something when wrong with process: " + modelPath);
+                e.printStackTrace();
+            }
     }
 
     public void SIMMinerService(String[] args) {
@@ -201,6 +316,53 @@ public class ServiceProvider {
         boolean parallelismFirst =  Boolean.valueOf(args[4]);
         boolean replaceIORs = Boolean.valueOf(args[5]);
         boolean removeLoopActivities = Boolean.valueOf(args[6]);
+//        boolean aux1 = Boolean.valueOf(args[7]);
+//        boolean aux2 = Boolean.valueOf(args[8]);
+//        outputDFG = aux1;
+//        filter = aux2;
+
+        try {
+            SimpleLog cLog = LogParser.getComplexLog(LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath), new XEventNameClassifier());
+            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(cLog, eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst);
+
+            if(outputDFG && (cLog instanceof ComplexLog)) {
+                dfgp.buildDFGfromComplexLog();
+                dfgp.detectLoops();
+                dfgp.detectParallelismsFromComplexLog();
+                if(filter) dfgp.filterWithGuarantees();
+                diagram = dfgp.convertIntoBPMNDiagramWithOriginalLabels();
+            } else {
+                dfgp.buildDFGP();
+                sm = new SplitMiner(replaceIORs, removeLoopActivities);
+                diagram = sm.discoverFromDFGP(dfgp);
+            }
+
+            BpmnExportPlugin bpmnExportPlugin = new BpmnExportPlugin();
+            UIContext context = new UIContext();
+            UIPluginContext uiPluginContext = context.getMainPluginContext();
+            bpmnExportPlugin.export(uiPluginContext, diagram, new File(modelName));
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR: - something went wrong");
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    public void MineWithSMTC(String[] args) {
+        boolean outputDFG = false;
+        boolean filter = false;
+        BPMNDiagram diagram;
+        SplitMiner sm;
+
+        String logPath = args[0];
+        String modelName = args[1] + ".bpmn";
+
+        double eta = 1.0;
+        double epsilon = Double.valueOf(args[2]);
+        boolean parallelismFirst =  true;
+        boolean replaceIORs = false;
+        boolean removeLoopActivities = false;
 //        boolean aux1 = Boolean.valueOf(args[7]);
 //        boolean aux2 = Boolean.valueOf(args[8]);
 //        outputDFG = aux1;
@@ -359,18 +521,42 @@ public class ServiceProvider {
         System.out.println("eTIME - " + (System.currentTimeMillis() - start) + "ms");
     }
 
+    public void printDFG(String[] args) {
+        try {
+            double eta = Double.valueOf(args[1]);
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[0]);
+            SimpleLog slog = LogParser.getSimpleLog(log, new XEventNameClassifier());
+            long etime = System.currentTimeMillis();
+            DirectlyFollowGraphPlus dfgp = new DirectlyFollowGraphPlus(slog, eta, 0.0, DFGPUIResult.FilterType.FWG, false);
+            dfgp.buildDirectlyFollowsGraph();
+            if(eta > 0) dfgp.filterWithGuarantees();
+
+            etime = System.currentTimeMillis() - etime;
+
+            dfgp.printEdges(true);
+
+            System.out.println("eTIME (excluding printing) - " + (double)etime/1000.0 + "s");
+
+            return;
+        } catch (Throwable e) {
+            System.out.println("ERROR: incorrect log path.");
+            e.printStackTrace();
+            return;
+        }
+    }
+
     public void SplitMinerService(String[] args) {
         try {
             double eta = Double.valueOf(args[0]);
             double epsilon = Double.valueOf(args[1]);
             boolean parallelismFirst =  Boolean.valueOf(args[2]);
             boolean replaceIORs = Boolean.valueOf(args[3]);
-            boolean removeLoopActivities = Boolean.valueOf(args[4]);
+            boolean removeLoopActivityMarkers = Boolean.valueOf(args[4]);
 
             SplitMiner yam = new SplitMiner();
             XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[5]);
             long etime = System.currentTimeMillis();
-            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst, replaceIORs, removeLoopActivities, SplitMinerUIResult.StructuringTime.NONE);
+            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst, replaceIORs, removeLoopActivityMarkers, SplitMinerUIResult.StructuringTime.NONE);
             etime = System.currentTimeMillis() - etime;
 
             System.out.println("eTIME - " + (double)etime/1000.0 + "s");
@@ -382,10 +568,12 @@ public class ServiceProvider {
             return;
         } catch (Throwable e) {
             System.out.println("ERROR: wrong usage.");
-            System.out.println("RUN> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD e n p 'logpath\\log.[xes|xes.gz|mxml]' 'outputpath\\outputname' ");
+            System.out.println("RUN> java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD n e p o l 'logpath\\log.[xes|xes.gz|mxml]' 'outputpath\\outputname' ");
             System.out.println("PARAM: e = double in [0,1] : parallelism threshold (epsilon)");
             System.out.println("PARAM: n = double in [0,1] : percentile for frequency threshold (eta)");
-            System.out.println("PARAM: p = [true|false] : replace non trivial OR joins?");
+            System.out.println("PARAM: p = [true|false] : prioritize parallelism on loops?");
+            System.out.println("PARAM: o = [true|false] : replace non trivial OR joins?");
+            System.out.println("PARAM: l = [true|false] : remove loop activity markers (false increases model complexity)?");
             System.out.println("EXAMPLE: java -cp bpmtk.jar;lib\\* au.edu.unimelb.services.ServiceProvider SMD 0.1 0.4 .\\logs\\SEPSIS.xes.gz .\\outputs\\SEPSIS");
             e.printStackTrace();
             return;
@@ -393,19 +581,19 @@ public class ServiceProvider {
     }
 
     public void SplitMinerServicePetrinet(String[] args) {
-
-        double epsilon = Double.valueOf(args[0]);
-        double eta = Double.valueOf(args[1]);
-        boolean replaceIORs = Boolean.valueOf(args[2]);
-
-        SplitMiner yam = new SplitMiner();
         PnmlExportNetToPNML exporter = new PnmlExportNetToPNML();
-        BPMNDiagram output;
         Object[] petrinet;
-        try{
-            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[3]);
+        try {
+            double eta = Double.valueOf(args[0]);
+            double epsilon = Double.valueOf(args[1]);
+            boolean parallelismFirst =  Boolean.valueOf(args[2]);
+            boolean replaceIORs = Boolean.valueOf(args[3]);
+            boolean removeLoopActivities = Boolean.valueOf(args[4]);
+
+            SplitMiner yam = new SplitMiner();
+            XLog log = LogImporter.importFromFile(new XFactoryNaiveImpl(), args[5]);
             long etime = System.currentTimeMillis();
-            output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, Boolean.valueOf(args[2]), replaceIORs, true, SplitMinerUIResult.StructuringTime.NONE);
+            BPMNDiagram output = yam.mineBPMNModel(log, new XEventNameClassifier(), eta, epsilon, DFGPUIResult.FilterType.FWG, parallelismFirst, replaceIORs, removeLoopActivities, SplitMinerUIResult.StructuringTime.NONE);
             etime = System.currentTimeMillis() - etime;
 
             System.out.println("eTIME - " + (double)etime/1000.0 + "s");
@@ -526,6 +714,63 @@ public class ServiceProvider {
             System.out.println("ERROR - impossible to import the log");
             e.printStackTrace();
         }
+    }
+
+
+    public void kendallTest(String[] args) {
+        BufferedReader reader;
+        double[] series1 = null;
+        double[] series2 = null;
+
+        int size = 0;
+
+        System.out.println("DEBUG - running kendall test...");
+
+        try {
+            reader = new BufferedReader(new FileReader(args[0]));
+            size = Integer.parseInt(reader.readLine()); //first line of the txt file must be the size of the series
+
+            series1 = new double[size];
+            series2 = new double[size];
+
+            reader.readLine(); // space between the size and the first series
+
+            for(int i = 0; i<size; i++)
+                series1[i] = Double.parseDouble(reader.readLine());
+
+            reader.readLine(); // space between the two series
+
+            for(int i = 0; i<size; i++)
+                series2[i] = Double.parseDouble(reader.readLine());
+
+            reader.close();
+        } catch (Exception e) {
+            System.out.println("ERROR - impossible to load the file for the kendall test");
+            e.printStackTrace();
+        }
+
+        double kendall = 0.0;
+        int discordant = 0;
+        int concordant = 0;
+        int count = 0;
+        int i, j;
+
+        i=0;
+        while( i < size ) {
+            j = i+1;
+            while( j < size ) {
+                j++;
+                if( series1[i] > series1[j] && series2[i] > series2[j] ) concordant++;
+                else if( series1[i] < series1[j] && series2[i] < series2[j] ) concordant++;
+                else if( series1[i] == series1[j] && series2[i] == series2[j] ) concordant++;
+                else discordant++;
+                count++;
+            }
+            i++;
+        }
+
+        kendall = (double)(concordant - discordant)/(double)count;
+        System.out.println("RESULT - kendall test value: " + kendall);
     }
 
     static private void printHelp() {

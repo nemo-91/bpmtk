@@ -20,6 +20,8 @@
 
 package au.edu.qut.bpmn.metrics;
 
+import au.edu.qut.processmining.log.SimpleLog;
+import au.edu.unimelb.processmining.accuracy.abstraction.distances.Levenshtein;
 import de.hpi.bpt.graph.DirectedEdge;
 import de.hpi.bpt.graph.DirectedGraph;
 import de.hpi.bpt.graph.abs.IDirectedGraph;
@@ -36,10 +38,7 @@ import org.processmining.models.graphbased.directed.bpmn.BPMNDiagram;
 import org.processmining.models.graphbased.directed.bpmn.BPMNNode;
 import org.processmining.models.graphbased.directed.bpmn.elements.*;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 
 
 @Plugin(
@@ -60,6 +59,66 @@ public class ComplexityCalculator {
     public ComplexityCalculator(BPMNDiagram diagram) {
         result = new HashMap<>();
         this.diagram = diagram;
+    }
+
+    public double logComplexity(SimpleLog log) {
+        Map<String, Integer> traces = log.getTraces();
+        Map<Integer, String> events = log.getEvents();
+
+        ArrayList<int[]> intTraces = new ArrayList<>();
+        ArrayList<Integer> frequencies = new ArrayList<>();
+        int[] intTrace;
+
+        int totalTraces = log.size();
+
+        StringTokenizer trace;
+        int length;
+
+        int event;
+        int i = 0;
+        int j = 0;
+
+        double avgDistance = 0.0;
+        double comparisons = 0;
+
+//      we generate all the integer-arrays traces
+        for (String t : traces.keySet()) {
+            trace = new StringTokenizer(t, "::");
+            length = trace.countTokens()-2;
+            if(length == 0) continue;
+            intTrace = new int[length];
+
+//            consuming the start event that is always 0
+            trace.nextToken();
+
+            i = 0;
+            while (i<length) {
+//                we read the next event of the trace until it is finished
+                event = Integer.valueOf(trace.nextToken());
+                intTrace[i] = event;
+                i++;
+            }
+
+            intTraces.add(intTrace);
+            frequencies.add(traces.get(t));
+//            System.out.println("DEBUG - trace ( "+ traces.get(t) + ")" + t);
+//            System.out.println("DEBUG - trace ( "+ frequencies.get(frequencies.size()-1) + ")" + t);
+        }
+
+//       we calculate the average distance for each pair of different trace
+
+        length = intTraces.size();
+        for(i = 0; i < length; i++)
+            for(j = i; j < length; j++) {
+//                System.out.println("DEBUG - avg D: " + avgDistance);
+                avgDistance = avgDistance + (double)(frequencies.get(i)*frequencies.get(j)*Levenshtein.arrayDistance(intTraces.get(i), intTraces.get(j)));
+                comparisons += (frequencies.get(i)*frequencies.get(j));
+            }
+
+        avgDistance = avgDistance/comparisons;
+//        System.out.println("DEBUG - comparisons: " + (double)comparisons);
+//        System.out.println("DEBUG - counter: " + counter);
+        return avgDistance;
     }
 
     public void setBPMN(BPMNDiagram bpmn){ diagram = bpmn; }
