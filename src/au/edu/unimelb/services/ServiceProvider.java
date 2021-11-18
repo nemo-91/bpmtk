@@ -22,6 +22,10 @@ import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.model.XLog;
+import org.deckfour.xes.model.XTrace;
+import org.deckfour.xes.model.impl.XAttributeMapImpl;
+import org.deckfour.xes.model.impl.XLogImpl;
+import org.deckfour.xes.out.XesXmlGZIPSerializer;
 import org.processmining.contexts.uitopia.UIContext;
 import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.fodina.Fodina;
@@ -37,6 +41,7 @@ import org.processmining.plugins.pnml.importing.PnmlImportNet;
 import sun.java2d.pipe.SpanShapeRenderer;
 
 import java.io.*;
+import java.util.ArrayList;
 
 
 /**
@@ -44,7 +49,7 @@ import java.io.*;
  */
 public class ServiceProvider {
 
-    public enum TEST_CODE {AVGD, MAP, MAF, SM2, SMPN, SMD, MAC, AOM, AOL, AORM, OPTF, SMHPO, COMPX, FOD, FOHPO, IMHPO, IMD}
+    public enum TEST_CODE {TCC, MAP, MAF, SM2, SMPN, SMD, MAC, AOM, AOL, AORM, OPTF, SMHPO, COMPX, LOB, FOHPO, IMHPO, IMD}
 
     public static void main(String[] args) {
         ServiceProvider testProvider = new ServiceProvider();
@@ -78,9 +83,14 @@ public class ServiceProvider {
             for(int i=1; i<args.length; i++) fargs[i-1] = args[i];
 
             switch(code) {
-                case AVGD:
+//                case AVGD:
 //                    testProvider.averageDistanceLogComplexity(fargs[0]);
-                    testProvider.timeConstraintsChecker(fargs[0], fargs[1]);
+//                break;
+                case LOB:
+                    testProvider.logBreaker(fargs);
+                    break;
+                case TCC:
+                    testProvider.timeConstraintsChecker(fargs);
                     break;
     //            case ISL:
     //                testProvider.importSimpleLog8020(fargs);
@@ -128,9 +138,9 @@ public class ServiceProvider {
                     computeComplexity(fargs[0]);
 //                    Testing.complexityOnRealModelsSet(fargs[0]);
                     break;
-                case FOD:
-                    testProvider.FodinaMinerService(fargs);
-                    break;
+//                case FOD:
+//                    testProvider.FodinaMinerService(fargs);
+//                    break;
                 case IMD:
                     testProvider.InductiveMinerService(fargs);
                     break;
@@ -187,20 +197,66 @@ public class ServiceProvider {
         System.out.println("eTIME - " + (double)etime/1000.0 + "s");
     }
 
-    private static void timeConstraintsChecker(String logPath, String rulesPath){
+    private static void logBreaker(String args[]) {
+        XLog olog, tmpLog;
+        XTrace trace;
+
+        XesXmlGZIPSerializer xesWriter = new XesXmlGZIPSerializer();
+
+        int totalTraces;
+        int sublogTraces;
+        int traceIndex;
+
+        String logPath = args[0];
+        String logExpPath = logPath.replace(".xes", "");
+        logExpPath = logExpPath.replace(".gz", "");
+        int sublogs = Integer.valueOf(args[1]);
+
+        try {
+            olog = LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath);
+            totalTraces = olog.size();
+            sublogTraces = totalTraces / sublogs;
+
+            traceIndex = 0;
+            for(int i = 1; i<(sublogs+1); i++) {
+                tmpLog = new XLogImpl(olog.getAttributes());
+
+                for (; traceIndex < sublogTraces*i; traceIndex++) {
+                    trace = olog.get(traceIndex);
+                    tmpLog.add(trace);
+                }
+
+                LogImporter.exportToFile(logExpPath + "_p" + i + ".xes.gz", tmpLog);
+            }
+        } catch(Exception e) {
+            System.out.println("ERROR - no log given in input");
+            e.printStackTrace();
+        }
+
+    }
+
+    private static void timeConstraintsChecker(String[] args){
         long etime;
         TimeConstraintsChecker tcc = new TimeConstraintsChecker();
 
-        etime = System.currentTimeMillis();
-        tcc.readXLog(logPath);
-        etime = System.currentTimeMillis() - etime;
-        System.out.println("Loading TIME - " + (double)etime/1000.0 + "s");
+        boolean loaded = false;
+        boolean updated = false;
+
+        String logPath = args[0];
+        String rulesPath = args[1];
+
+        if(args.length == 3) loaded = tcc.loadData(args[2]);
+
+        updated = tcc.readXLog(logPath);
 //        tcc.print();
 
         etime = System.currentTimeMillis();
-        tcc.checkConstraints(rulesPath);
+        if(loaded || updated) tcc.checkConstraints(rulesPath);
         etime = System.currentTimeMillis() - etime;
         System.out.println("Querying TIME - " + (double)etime/1000.0 + "s");
+
+//        tcc.info();
+        if(updated) tcc.saveData(logPath);
     }
 
     private static void logAnalysis(String logPath) {
