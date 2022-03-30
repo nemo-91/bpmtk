@@ -276,7 +276,7 @@ public class TimeConstraintsChecker implements Serializable {
         if(!loaded) return null;
         Set<Long> invalidCases = new HashSet<>();
         Map<Long, Long> tmp = new HashMap();
-        boolean inclusive = false;
+//        boolean inclusive = false; this is useless at the moment - the delta is not inclusive
         boolean strictFirst = true;
 
         Pair p;
@@ -308,82 +308,29 @@ public class TimeConstraintsChecker implements Serializable {
         switch(query){
             case MAX:
 //                cases where if TGT follows SRC, it must follow within DELTA-time
-//                it returns the cases where TGT follows SRC after DELTA-time
+//                it returns the cases where: the first occurrence of TGT after SRC is observed after DELTA-time
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.right);
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
                 break;
             case MIN:
 //                cases where if TGT follows SRC, it must follow after DELTA-time
-//                it returns the cases where TGT follows SRC within DELTA-time
+//                it returns the cases where: the first occurrence of TGT after SRC is observed before DELTA-time
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.right);
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
                 break;
             case EXACT:
 //                cases where if TGT follows SRC, it must follow exactly after DELTA-time
-//                it returns the cases where TGT follows SRC before or after DELTA-time
+//                it returns the cases where: the first occurrence of TGT after SRC is observed exactly at DELTA-time
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
-                ref = new Pair(delta, Long.MIN_VALUE);
+                ref = new Pair(delta, Long.MAX_VALUE);
                 for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
-                ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
-                break;
-            case MAXP:
-//                cases where TGT MUST follow SRC (if it appears) within DELTA-time
-//                cases where SRC does not precede TGT are considered invalid (this does not account for multiple obs)
-//                it returns the cases where TGT follows SRC within DELTA-time and where SRC does not precede TGT
-                p = new Pair(source, target);
-                if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.right);
-
-                p = new Pair(0, source);
-                for(Pair x : ascendingDeltas.get(p))
-                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
-
-                p = new Pair(0, target);
-                for(Pair x : ascendingDeltas.get(p))
-                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
-                break;
-            case MINP:
-//                cases where TGT MUST follow SRC (if it appears) after DELTA-time
-//                cases where SRC does not precede TGT are considered invalid (this does not account for multiple obs)
-//                it returns the cases where TGT follows SRC within DELTA-time and where SRC does not precede TGT
-                p = new Pair(source, target);
-                if(ascendingDeltas.get(p) == null) break;
-                ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.right);
-
-                p = new Pair(0, source);
-                for(Pair x : ascendingDeltas.get(p))
-                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
-
-                p = new Pair(0, target);
-                for(Pair x : ascendingDeltas.get(p))
-                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
-                break;
-            case EXACTP:
-//                cases where TGT MUST follow SRC (if it appears) exactly at DELTA-time
-//                cases where SRC does not precede TGT are considered invalid (this does not account for multiple obs)
-//                it returns the cases where TGT follows SRC within DELTA-time and where SRC does not precede TGT
-                p = new Pair(source, target);
-                if(ascendingDeltas.get(p) == null) break;
-                ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
-                ref = new Pair(delta, Long.MAX_VALUE);
                 for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
-
-                p = new Pair(0, source);
-                for(Pair x : ascendingDeltas.get(p))
-                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
-
-                p = new Pair(0, target);
-                for(Pair x : ascendingDeltas.get(p))
-                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
                 break;
             case MAXS:
 //                cases where if SRC is not observed, TGT must be observed within DELTA-time
@@ -392,7 +339,7 @@ public class TimeConstraintsChecker implements Serializable {
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
 //                this considers all the observation of TGT after the start not only the first one!
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.right);
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
                 invalidCases.removeAll(caseObservations.get(source));
                 break;
             case MINS:
@@ -403,7 +350,7 @@ public class TimeConstraintsChecker implements Serializable {
                 ref = new Pair(delta, Long.MAX_VALUE);
 //                this may consider all the observation of TGT after the start, but it is okay because if there is one that brakes the rule also all the previous break the rule
 //                e.g., in the best case only the first breaks the rule, in the worst case, the last and all the preceding (till the first observation) break the rule
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.right);
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
                 invalidCases.removeAll(caseObservations.get(source));
                 break;
             case EXACTS:
@@ -418,6 +365,59 @@ public class TimeConstraintsChecker implements Serializable {
 //                iterating on the cases where TGT is observed before DELTA-time
                 for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
                 invalidCases.removeAll(caseObservations.get(source));
+                break;
+            case MAXP:
+//                cases where TGT MUST follow SRC (if it appears) within DELTA-time
+//                cases where SRC does not precede TGT are considered invalid (this accounts only for the first observation)
+//                it returns the cases where: the first occurrence of TGT follows SRC within DELTA-time && where SRC does not precede TGT
+                p = new Pair(source, target);
+                if(ascendingDeltas.get(p) == null) break;
+                ref = new Pair(delta, Long.MIN_VALUE);
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
+
+                p = new Pair(0, source);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
+
+                p = new Pair(0, target);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
+                break;
+            case MINP:
+//                cases where TGT MUST follow SRC (if it appears) after DELTA-time
+//                cases where SRC does not precede TGT are considered invalid (this accounts only for the first observation)
+//                it returns the cases where: the first occurrence of TGT follows SRC within DELTA-time and where SRC does not precede TGT
+                p = new Pair(source, target);
+                if(ascendingDeltas.get(p) == null) break;
+                ref = new Pair(delta, Long.MAX_VALUE);
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
+
+                p = new Pair(0, source);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
+
+                p = new Pair(0, target);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
+                break;
+            case EXACTP:
+//                cases where TGT MUST follow SRC (if it appears) exactly at DELTA-time
+//                cases where SRC does not precede TGT are considered invalid (this accounts only for the first observation)
+//                it returns the cases where: the first occurrence of TGT follows SRC within DELTA-time and where SRC does not precede TGT
+                p = new Pair(source, target);
+                if(ascendingDeltas.get(p) == null) break;
+                ref = new Pair(delta, Long.MAX_VALUE);
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
+                ref = new Pair(delta, Long.MIN_VALUE);
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
+
+                p = new Pair(0, source);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
+
+                p = new Pair(0, target);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
                 break;
             default:
                 System.out.println("ERROR - invalid query code");
