@@ -18,6 +18,7 @@ public class TimeConstraintsChecker implements Serializable {
     private Map<Long, Set<Long>> caseObservations; //key is the activityID, value is the set of caseIDs where that activity is observed
     private Map<Pair, TreeSet<Pair>> ascendingDeltas; //key pair is a pair source-target, array pair is a pair delta-caseID, in ascending order by delta
     private Map<String, Long> activityIDs;
+//    private Map<Long, String> labelIDs;
     private Map<String, Long> caseIDs;
 
     private Map<String, ArrayList<Long>> logActivites;
@@ -33,6 +34,7 @@ public class TimeConstraintsChecker implements Serializable {
         ascendingDeltas = new HashMap<>();
         caseObservations = new HashMap<>();
         activityIDs = new HashMap<>();
+//        labelIDs = new HashMap<>();
         caseIDs = new HashMap<>();
         logActivites = new HashMap<>();
         logTimestamps = new HashMap<>();
@@ -71,6 +73,7 @@ public class TimeConstraintsChecker implements Serializable {
         ArrayList<Long> timestamps;
 
         long tmpTS;
+        boolean duplicate;
 
         try {
             log = LogImporter.importFromFile(new XFactoryNaiveImpl(), logPath);
@@ -114,14 +117,21 @@ public class TimeConstraintsChecker implements Serializable {
                 if(!activityIDs.containsKey(label)) {
                     aIndex = aID;
                     activityIDs.put(label, aID++);
+//                    labelIDs.put(aIndex, label);
                     caseObservations.put(aIndex, new HashSet<>());
                 } else aIndex = activityIDs.get(label);
 
-                caseObservations.get(aIndex).add(cIndex);
                 tmpTS = getTimestampInMinutes(event.getAttributes().get("time:timestamp").toString());
                 if(activities.size() == 1) timestamps.add(tmpTS); // we duplicate the first timestamp to calculate delta w.r.t. the start
 
-                for(int j = 0; j < activities.size(); j++) {
+                duplicate = false;
+                for(int j = 1; j < activities.size(); j++) {
+//                    the following IF allows to keep track which one is the last occurrence of an activity (which will always be a positive number)
+//                    past occurrences of activities will be negative numbers
+                    if(activities.get(j) == aIndex) {
+                        activities.set(j, -activities.get(j));
+                        duplicate = true;
+                    }
                     pair = new Pair(activities.get(j), aIndex);
                     delta = tmpTS - timestamps.get(j);
                     if(delta < 0) negTimes++;
@@ -129,6 +139,14 @@ public class TimeConstraintsChecker implements Serializable {
                     ascendingDeltas.get(pair).add(new Pair(delta, cIndex));
                     paircounter++;
                 }
+
+                if(duplicate) pair = new Pair(activities.get(0), -aIndex);
+                else pair = new Pair(activities.get(0), aIndex);
+                delta = tmpTS - timestamps.get(0);
+                if(delta < 0) negTimes++;
+                if(!ascendingDeltas.containsKey(pair)) ascendingDeltas.put(pair, new TreeSet<>());
+                ascendingDeltas.get(pair).add(new Pair(delta, cIndex));
+                paircounter++;
 
                 if(maxTraceSize < traceSize) maxTraceSize = traceSize;
                 activities.add(aIndex);
@@ -203,9 +221,9 @@ public class TimeConstraintsChecker implements Serializable {
     public void info() {
         long max, min;
         for(Pair x : ascendingDeltas.keySet()) {
-            min = ascendingDeltas.get(x).first().getLeft();
-            max = ascendingDeltas.get(x).last().getLeft();
-            System.out.println(x.getLeft() + "," + x.getRight() + "," + min + "," + max);
+            min = ascendingDeltas.get(x).first().left;
+            max = ascendingDeltas.get(x).last().left;
+            System.out.println(x.left + "," + x.right + "," + min + "," + max);
         }
     }
 
@@ -216,8 +234,8 @@ public class TimeConstraintsChecker implements Serializable {
 
         BufferedReader reader;
         String query = null;
-        long source;
-        long target;
+        String source;
+        String target;
         QCODE code;
         long delta;
         StringTokenizer tokenizer;
@@ -231,8 +249,8 @@ public class TimeConstraintsChecker implements Serializable {
             while (reader.ready()) {
                 query = reader.readLine();
                 tokenizer = new StringTokenizer(query, " ");
-                source = Long.valueOf(tokenizer.nextToken()); // replace this with a get from activitiesID
-                target = Long.valueOf(tokenizer.nextToken()); // replace this with a get from activitiesID
+                source = tokenizer.nextToken();
+                target = tokenizer.nextToken();
                 code = QCODE.valueOf(tokenizer.nextToken());
                 delta = Long.valueOf(tokenizer.nextToken());
                 invalidCases = query(source, target, code, delta);
@@ -254,13 +272,38 @@ public class TimeConstraintsChecker implements Serializable {
     }
 
 
-    public Set<Long> query (long source, long target, QCODE query, long delta) {
+    public Set<Long> query (String src, String tgt, QCODE query, long delta) {
         if(!loaded) return null;
         Set<Long> invalidCases = new HashSet<>();
+        Map<Long, Long> tmp = new HashMap();
         boolean inclusive = false;
+        boolean strictFirst = true;
 
         Pair p;
         Pair ref;
+
+        Long source;
+        Long target;
+
+        try {
+//            this is effective only if the activity is given as integer ID
+//            this is mostly required for efficient testing
+            source = Long.valueOf(src);
+            target = Long.valueOf(tgt);
+//            System.out.println("-" + source + " -" + target + " " + query + " " + delta);
+//            System.out.println("\"*" + labelIDs.get(source) + "\" \"*" + labelIDs.get(target) + "\" " + query + " " + delta);
+        } catch(Exception e) {
+//            if the activity is not given as an integerID, we need to look it up
+//            if(src.charAt(0) == '*') source = activityIDs.get(src.substring(1)) * -1;
+//            else
+                source = activityIDs.get(src);
+
+//            if(tgt.charAt(0) == '*') target = activityIDs.get(tgt.substring(1)) * -1;
+//            else
+                target = activityIDs.get(tgt);
+        }
+
+        if(source == null || target == null) return invalidCases;
 
         switch(query){
             case MAX:
@@ -269,7 +312,7 @@ public class TimeConstraintsChecker implements Serializable {
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.right);
                 break;
             case MIN:
 //                cases where if TGT follows SRC, it must follow after DELTA-time
@@ -277,7 +320,7 @@ public class TimeConstraintsChecker implements Serializable {
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.right);
                 break;
             case EXACT:
 //                cases where if TGT follows SRC, it must follow exactly after DELTA-time
@@ -285,9 +328,9 @@ public class TimeConstraintsChecker implements Serializable {
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
                 ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
                 break;
             case MAXP:
 //                cases where TGT MUST follow SRC (if it appears) within DELTA-time
@@ -296,9 +339,15 @@ public class TimeConstraintsChecker implements Serializable {
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                invalidCases.addAll(caseObservations.get(target));
-                invalidCases.removeAll(caseObservations.get(source));
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.right);
+
+                p = new Pair(0, source);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
+
+                p = new Pair(0, target);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
                 break;
             case MINP:
 //                cases where TGT MUST follow SRC (if it appears) after DELTA-time
@@ -307,9 +356,15 @@ public class TimeConstraintsChecker implements Serializable {
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MAX_VALUE);
-                invalidCases.addAll(caseObservations.get(target));
-                invalidCases.removeAll(caseObservations.get(source));
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.right);
+
+                p = new Pair(0, source);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
+
+                p = new Pair(0, target);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
                 break;
             case EXACTP:
 //                cases where TGT MUST follow SRC (if it appears) exactly at DELTA-time
@@ -318,39 +373,50 @@ public class TimeConstraintsChecker implements Serializable {
                 p = new Pair(source, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                invalidCases.addAll(caseObservations.get(target));
-                invalidCases.removeAll(caseObservations.get(source));
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.right);
                 ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.getRight());
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
+
+                p = new Pair(0, source);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right)) tmp.put(x.right, x.left);
+
+                p = new Pair(0, target);
+                for(Pair x : ascendingDeltas.get(p))
+                    if(!tmp.containsKey(x.right) || tmp.get(x.right) >= x.left ) invalidCases.add(x.right);
                 break;
             case MAXS:
 //                cases where if SRC is not observed, TGT must be observed within DELTA-time
-//                it returns the cases where TGT appears after DELTA-time from start AND SRC is not observed
+//                it returns the cases where: the first occurrence of TGT is observed after DELTA-time from start && SRC is not observed
                 p = new Pair(0, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.getRight());
+//                this considers all the observation of TGT after the start not only the first one!
+                for(Pair x : ascendingDeltas.get(p).tailSet(ref, inclusive)) invalidCases.add(x.right);
                 invalidCases.removeAll(caseObservations.get(source));
                 break;
             case MINS:
 //                cases where if SRC is not observed, TGT must be observed after DELTA-time
-//                it returns the cases where TGT appears within DELTA-time from start AND SRC is not observed
+//                it returns the cases where: the first occurrence of TGT is observed within DELTA-time from start && SRC is not observed
                 p = new Pair(0, target);
                 if(ascendingDeltas.get(p) == null) break;
                 ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.getRight());
+//                this may consider all the observation of TGT after the start, but it is okay because if there is one that brakes the rule also all the previous break the rule
+//                e.g., in the best case only the first breaks the rule, in the worst case, the last and all the preceding (till the first observation) break the rule
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, inclusive)) invalidCases.add(x.right);
                 invalidCases.removeAll(caseObservations.get(source));
                 break;
             case EXACTS:
 //                cases where if SRC is not observed, TGT must be observed exactly at DELTA-time
-//                it returns the cases where TGT appears exactly at DELTA-time from start AND SRC is not observed
+//                it returns the cases where: the first occurrence of TGT is observed exactly at DELTA-time from start && SRC is not observed
                 p = new Pair(0, target);
+                invalidCases.addAll(caseIDs.values());
                 if(ascendingDeltas.get(p) == null) break;
+//                ref = new Pair(delta, Long.MIN_VALUE);
+                for(Pair x : ascendingDeltas.get(p).subSet(new Pair(delta, Long.MIN_VALUE), new Pair(delta, Long.MAX_VALUE))) invalidCases.remove(x.right);
                 ref = new Pair(delta, Long.MIN_VALUE);
-                for(Pair x : ascendingDeltas.get(p).tailSet(ref, false)) invalidCases.add(x.getRight());
-                ref = new Pair(delta, Long.MAX_VALUE);
-                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.getRight());
+//                iterating on the cases where TGT is observed before DELTA-time
+                for(Pair x : ascendingDeltas.get(p).headSet(ref, false)) invalidCases.add(x.right);
                 invalidCases.removeAll(caseObservations.get(source));
                 break;
             default:
